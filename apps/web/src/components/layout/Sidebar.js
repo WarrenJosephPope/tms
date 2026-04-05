@@ -19,30 +19,30 @@ import {
 import { clsx } from "clsx";
 
 const NAV_SHIPPER = [
-  { label: "Dashboard",    href: "/dashboard/shipper",        icon: LayoutDashboard },
-  { label: "My Loads",     href: "/dashboard/shipper/loads",  icon: Package },
-  { label: "Post a Load",  href: "/dashboard/shipper/loads/new", icon: Gavel },
-  { label: "Tracking",     href: "/dashboard/shipper/tracking", icon: MapPin },
-  { label: "Analytics",    href: "/dashboard/shipper/analytics", icon: BarChart3 },
+  { label: "Dashboard", href: "/dashboard/shipper", icon: LayoutDashboard },
+  { label: "My Loads", href: "/dashboard/shipper/loads", icon: Package },
+  { label: "Post a Load", href: "/dashboard/shipper/loads/new", icon: Gavel },
+  { label: "Tracking", href: "/dashboard/shipper/tracking", icon: MapPin },
+  { label: "Analytics", href: "/dashboard/shipper/analytics", icon: BarChart3 },
 ];
 
 const NAV_TRANSPORTER = [
-  { label: "Dashboard",    href: "/dashboard/transporter",              icon: LayoutDashboard },
-  { label: "Load Market",  href: "/dashboard/transporter/loads",        icon: Package },
-  { label: "My Bids",      href: "/dashboard/transporter/bids",         icon: Gavel },
-  { label: "Active Trips", href: "/dashboard/transporter/trips",        icon: MapPin },
-  { label: "Fleet",        href: "/dashboard/transporter/fleet",        icon: Truck },
-  { label: "Drivers",      href: "/dashboard/transporter/drivers",      icon: Users },
-  { label: "Documents",    href: "/dashboard/transporter/documents",    icon: FileText },
+  { label: "Dashboard", href: "/dashboard/transporter", icon: LayoutDashboard },
+  { label: "Load Market", href: "/dashboard/transporter/loads", icon: Package },
+  { label: "My Bids", href: "/dashboard/transporter/bids", icon: Gavel },
+  { label: "Active Trips", href: "/dashboard/transporter/trips", icon: MapPin },
+  { label: "Fleet", href: "/dashboard/transporter/fleet", icon: Truck },
+  { label: "Drivers", href: "/dashboard/transporter/drivers", icon: Users },
+  { label: "Documents", href: "/dashboard/transporter/documents", icon: FileText },
 ];
 
 const NAV_ADMIN = [
-  { label: "Dashboard",    href: "/dashboard/admin",              icon: LayoutDashboard },
-  { label: "Companies",    href: "/dashboard/admin/companies",    icon: ShieldCheck },
-  { label: "All Loads",    href: "/dashboard/admin/loads",        icon: Package },
-  { label: "All Trips",    href: "/dashboard/admin/trips",        icon: Truck },
-  { label: "Analytics",    href: "/dashboard/admin/analytics",    icon: BarChart3 },
-  { label: "Config",       href: "/dashboard/admin/config",       icon: Settings },
+  { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
+  { label: "Companies", href: "/dashboard/admin/companies", icon: ShieldCheck },
+  { label: "All Loads", href: "/dashboard/admin/loads", icon: Package },
+  { label: "All Trips", href: "/dashboard/admin/trips", icon: Truck },
+  { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
+  { label: "Config", href: "/dashboard/admin/config", icon: Settings },
 ];
 
 const NAV_BY_TYPE = {
@@ -58,7 +58,7 @@ export default function Sidebar({ profile }) {
   return (
     <aside className="hidden md:flex w-60 flex-shrink-0 flex-col bg-white border-r border-surface-border h-full">
       {/* Logo */}
-      <div className="h-16 flex items-center px-5 border-b border-surface-border">
+      <div className="h-16 flex items-center justify-center px-5 border-b border-surface-border">
         <Image
           src="/logo.png"
           alt="eParivahan"
