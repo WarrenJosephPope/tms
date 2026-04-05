@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator,
+  StyleSheet, Alert, ActivityIndicator, Dimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import MapView, { Marker, Polyline } from "react-native-maps";
 import { supabase } from "../../../src/lib/supabase";
 import { startTracking, stopTracking } from "../../../src/lib/locationTracking";
 
@@ -11,27 +12,44 @@ export default function TripDetailScreen() {
   const { id: tripId } = useLocalSearchParams();
   const router = useRouter();
   const [trip, setTrip] = useState(null);
+  const [stops, setStops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tracking, setTracking] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from("trips")
-      .select(`
-        id, status, scheduled_pickup_at, actual_pickup_at,
-        estimated_delivery_at, actual_delivery_at, agreed_amount,
-        load:loads(
-          origin_city, dest_city, origin_address, dest_address,
-          commodity, weight_tonnes, vehicle_type_req,
-          special_instructions
-        ),
-        vehicle:vehicles(registration_no, make, model),
-        shipper_company:companies(name, phone)
-      `)
-      .eq("id", tripId)
-      .single()
-      .then(({ data }) => { setTrip(data); setLoading(false); });
+    async function loadTrip() {
+      const { data: tripData } = await supabase
+        .from("trips")
+        .select(`
+          id, status, scheduled_pickup_at, actual_pickup_at,
+          estimated_delivery_at, actual_delivery_at, agreed_amount,
+          load:loads(
+            id, origin_city, dest_city, origin_address, dest_address,
+            commodity, weight_tonnes, vehicle_type_req,
+            special_instructions
+          ),
+          vehicle:vehicles(registration_no, make, model),
+          shipper_company:companies(name, phone)
+        `)
+        .eq("id", tripId)
+        .single();
+
+      setTrip(tripData);
+
+      if (tripData?.load?.id) {
+        const { data: stopsData } = await supabase
+          .from("load_stops")
+          .select("id, stop_type, stop_order, address, city, lat, lng")
+          .eq("load_id", tripData.load.id)
+          .order("stop_type")
+          .order("stop_order");
+        setStops(stopsData ?? []);
+      }
+
+      setLoading(false);
+    }
+    loadTrip();
   }, [tripId]);
 
   async function handleStartTrip() {
@@ -119,6 +137,11 @@ export default function TripDetailScreen() {
         {load?.origin_city} → {load?.dest_city}
       </Text>
       <Text style={styles.statusBadge}>{trip.status.replace(/_/g, " ").toUpperCase()}</Text>
+
+      {/* Stops Map */}
+      {stops.length > 0 && stops.some((s) => s.lat != null) && (
+        <StopsMapView stops={stops} />
+      )}
 
       {/* Load info */}
       <View style={styles.section}>
@@ -219,6 +242,67 @@ export default function TripDetailScreen() {
   );
 }
 
+const PICKUP_COLOR = "#16a34a";
+const DELIVERY_COLOR = "#dc2626";
+const LINE_COLOR = "#f97316";
+
+function StopsMapView({ stops }) {
+  const validStops = stops.filter((s) => s.lat != null && s.lng != null);
+  if (!validStops.length) return null;
+
+  const lats = validStops.map((s) => Number(s.lat));
+  const lngs = validStops.map((s) => Number(s.lng));
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const region = {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: Math.max(maxLat - minLat, 0.05) * 1.4,
+    longitudeDelta: Math.max(maxLng - minLng, 0.05) * 1.4,
+  };
+
+  const polylineCoords = validStops.map((s) => ({
+    latitude: Number(s.lat),
+    longitude: Number(s.lng),
+  }));
+
+  return (
+    <View style={styles.mapSection}>
+      <Text style={styles.sectionTitle}>Route</Text>
+      <View style={styles.mapLegend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: PICKUP_COLOR }]} />
+          <Text style={styles.legendText}>Pickup</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: DELIVERY_COLOR }]} />
+          <Text style={styles.legendText}>Delivery</Text>
+        </View>
+      </View>
+      <MapView style={styles.map} initialRegion={region}>
+        {validStops.map((stop, idx) => (
+          <Marker
+            key={stop.id ?? idx}
+            coordinate={{ latitude: Number(stop.lat), longitude: Number(stop.lng) }}
+            title={`${stop.stop_type === "pickup" ? "Pickup" : "Delivery"} ${idx + 1}`}
+            description={stop.address || stop.city}
+            pinColor={stop.stop_type === "pickup" ? PICKUP_COLOR : DELIVERY_COLOR}
+          />
+        ))}
+        {polylineCoords.length > 1 && (
+          <Polyline
+            coordinates={polylineCoords}
+            strokeColor={LINE_COLOR}
+            strokeWidth={2}
+          />
+        )}
+      </MapView>
+    </View>
+  );
+}
+
 function InfoRow({ label, value }) {
   if (!value) return null;
   return (
@@ -254,4 +338,10 @@ const styles = StyleSheet.create({
   trackingActive: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#f0fdf4", borderRadius: 10, paddingVertical: 10 },
   liveDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: "#16a34a" },
   trackingText:   { fontSize: 13, color: "#16a34a", fontWeight: "600" },
+  mapSection:     { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  map:            { width: "100%", height: 200, borderRadius: 10, overflow: "hidden", marginTop: 8 },
+  mapLegend:      { flexDirection: "row", gap: 16, marginBottom: 4 },
+  legendItem:     { flexDirection: "row", alignItems: "center", gap: 6 },
+  legendDot:      { width: 10, height: 10, borderRadius: 5 },
+  legendText:     { fontSize: 12, color: "#64748b" },
 });
