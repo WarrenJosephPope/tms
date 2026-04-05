@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "eParivahan Driver",
+    "slug": "eparivahan-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "eparivahan",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#f97316"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "in.eparivahan.driver",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "eParivahan needs your location to track your active trip.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "eParivahan needs your location in the background while you are on a trip.",
+        "NSCameraUsageDescription": "Required to capture pickup and delivery photos.",
+        "NSPhotoLibraryUsageDescription": "Required to upload delivery proof photos."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f97316"
+      },
+      "package": "in.eparivahan.driver",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow eParivahan to use your location while on a trip."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#f97316"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    }
+  }
+}
