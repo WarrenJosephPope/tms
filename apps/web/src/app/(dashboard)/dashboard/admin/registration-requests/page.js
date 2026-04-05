@@ -68,9 +68,9 @@ export default function RegistrationRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900">Registration Requests</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {["all", "pending", "approved", "rejected"].map((f) => (
             <button
               key={f}
@@ -106,9 +106,9 @@ export default function RegistrationRequestsPage() {
                 <tr className="border-b border-surface-border bg-slate-50 text-left text-slate-500">
                   <th className="px-4 py-3 font-medium">Applicant</th>
                   <th className="px-4 py-3 font-medium">Company</th>
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 font-medium">Location</th>
-                  <th className="px-4 py-3 font-medium">Submitted</th>
+                  <th className="px-4 py-3 font-medium hidden sm:table-cell">Type</th>
+                  <th className="px-4 py-3 font-medium hidden md:table-cell">Location</th>
+                  <th className="px-4 py-3 font-medium hidden md:table-cell">Submitted</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Action</th>
                 </tr>
@@ -126,11 +126,11 @@ export default function RegistrationRequestsPage() {
                         <div className="font-medium text-slate-900">{req.company_name}</div>
                         {req.gstin && <div className="text-xs text-slate-400">GSTIN: {req.gstin}</div>}
                       </td>
-                      <td className="px-4 py-3 capitalize text-slate-600">{req.user_type}</td>
-                      <td className="px-4 py-3 text-slate-600 text-xs">
+                      <td className="px-4 py-3 capitalize text-slate-600 hidden sm:table-cell">{req.user_type}</td>
+                      <td className="px-4 py-3 text-slate-600 text-xs hidden md:table-cell">
                         {[req.city, req.state].filter(Boolean).join(", ") || "—"}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                      <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap hidden md:table-cell">
                         {new Date(req.created_at).toLocaleDateString("en-IN")}
                       </td>
                       <td className="px-4 py-3">

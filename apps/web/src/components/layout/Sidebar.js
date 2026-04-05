@@ -16,6 +16,7 @@ import {
   BarChart3,
   ChevronRight,
   Layers,
+  X,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -53,22 +54,45 @@ const NAV_BY_TYPE = {
   admin: NAV_ADMIN,
 };
 
-export default function Sidebar({ profile }) {
+export default function Sidebar({ profile, isOpen, onClose }) {
   const pathname = usePathname();
   const nav = NAV_BY_TYPE[profile.user_type] ?? [];
 
+  // Find the most specific nav item that matches the current path (longest prefix wins).
+  // This prevents parent routes like /dashboard/admin from staying highlighted on sub-pages.
+  const activeHref = nav.reduce((best, item) => {
+    if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+      if (!best || item.href.length > best.length) return item.href;
+    }
+    return best;
+  }, null);
+
   return (
-    <aside className="hidden md:flex w-60 flex-shrink-0 flex-col bg-white border-r border-surface-border h-full">
+    <aside
+      className={clsx(
+        "fixed inset-y-0 left-0 z-50 flex w-64 flex-shrink-0 flex-col bg-white border-r border-surface-border h-full transition-transform duration-200 ease-in-out",
+        "md:relative md:translate-x-0 md:w-60",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
       {/* Logo */}
-      <div className="h-16 flex items-center justify-center px-5 border-b border-surface-border">
+      <div className="h-16 flex items-center justify-between px-5 border-b border-surface-border">
         <Image
           src="/logo.png"
           alt="eParivahan"
-          width={160}
-          height={40}
+          width={140}
+          height={36}
           className="object-contain"
           priority
         />
+        {/* Close button — mobile only */}
+        <button
+          onClick={onClose}
+          className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+          aria-label="Close menu"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Company chip */}
@@ -85,7 +109,7 @@ export default function Sidebar({ profile }) {
       {/* Nav links */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {nav.map(({ label, href, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + "/");
+          const active = activeHref === href;
           return (
             <Link
               key={href}

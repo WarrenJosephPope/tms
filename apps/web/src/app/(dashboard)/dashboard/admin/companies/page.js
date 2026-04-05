@@ -26,12 +26,12 @@ export default async function AdminCompaniesPage({ searchParams }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Companies</h1>
           <p className="text-sm text-slate-500 mt-1">{companies.length} companies found</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {["", "pending", "approved", "rejected"].map((status) => (
             <Link
               key={status || "all"}
@@ -52,14 +52,15 @@ export default async function AdminCompaniesPage({ searchParams }) {
         {companies.length === 0 ? (
           <p className="text-sm text-slate-400 py-10 text-center">No companies found.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-border text-left text-slate-500">
                 <th className="px-4 py-3 font-medium">Company</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Location</th>
+                <th className="px-4 py-3 font-medium hidden sm:table-cell">Type</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">Location</th>
                 <th className="px-4 py-3 font-medium">KYC</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium hidden sm:table-cell">Status</th>
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
@@ -67,8 +68,8 @@ export default async function AdminCompaniesPage({ searchParams }) {
               {companies.map((co) => (
                 <tr key={co.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-slate-900">{co.name}</td>
-                  <td className="px-4 py-3 capitalize text-slate-600">{co.user_type}</td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 capitalize text-slate-600 hidden sm:table-cell">{co.user_type}</td>
+                  <td className="px-4 py-3 text-slate-600 hidden md:table-cell">
                     {[co.city, co.state].filter(Boolean).join(", ") || "—"}
                   </td>
                   <td className="px-4 py-3">
@@ -76,7 +77,7 @@ export default async function AdminCompaniesPage({ searchParams }) {
                       {co.kyc_status}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden sm:table-cell">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${co.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
                       {co.is_active ? "Active" : "Inactive"}
                     </span>
@@ -93,6 +94,7 @@ export default async function AdminCompaniesPage({ searchParams }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

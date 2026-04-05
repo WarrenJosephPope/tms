@@ -30,12 +30,13 @@ export default async function ShipperLoadsPage() {
             <Link href="/dashboard/shipper/loads/new" className="btn-primary mt-4 inline-flex">Post first load</Link>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr className="text-left text-slate-500 text-xs uppercase tracking-wide">
                 <th className="px-4 py-3 font-semibold">Route</th>
-                <th className="px-4 py-3 font-semibold">Commodity</th>
-                <th className="px-4 py-3 font-semibold">Pickup</th>
+                <th className="px-4 py-3 font-semibold hidden sm:table-cell">Commodity</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">Pickup</th>
                 <th className="px-4 py-3 font-semibold">Opening Price</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold">Actions</th>
@@ -47,8 +48,8 @@ export default async function ShipperLoadsPage() {
                   <td className="px-4 py-3 font-medium text-slate-900">
                     {load.origin_city} → {load.dest_city}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{load.commodity}</td>
-                  <td className="px-4 py-3 text-slate-500">
+                  <td className="px-4 py-3 text-slate-600 hidden sm:table-cell">{load.commodity}</td>
+                  <td className="px-4 py-3 text-slate-500 hidden md:table-cell">
                     {load.pickup_date
                       ? new Date(load.pickup_date).toLocaleDateString("en-IN", { dateStyle: "medium" })
                       : "—"}
@@ -69,6 +70,7 @@ export default async function ShipperLoadsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
