@@ -34,7 +34,8 @@ export default async function TransporterLoadsPage({ searchParams }) {
   if (originFilter)  query = query.ilike("origin_city", `%${originFilter}%`);
   if (destFilter)    query = query.ilike("dest_city", `%${destFilter}%`);
 
-  const { data: loads = [], count } = await query;
+  const { data, count, error } = await query;
+  const loads = data ?? [];
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / limit));
 
   return (

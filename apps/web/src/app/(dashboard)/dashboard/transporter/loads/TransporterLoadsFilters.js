@@ -23,6 +23,7 @@ export default function TransporterLoadsFilters({ vehicleFilter, originFilter, d
   const [vehicle, setVehicle] = useState(vehicleFilter ?? "");
 
   const timer = useRef(null);
+  const isMounted = useRef(false);
 
   function pushParams(o, d, v) {
     const params = new URLSearchParams(searchParams.toString());
@@ -33,8 +34,9 @@ export default function TransporterLoadsFilters({ vehicleFilter, originFilter, d
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  // Debounce text inputs
+  // Debounce text inputs — skip the initial mount to avoid a spurious navigation
   useEffect(() => {
+    if (!isMounted.current) { isMounted.current = true; return; }
     clearTimeout(timer.current);
     timer.current = setTimeout(() => pushParams(origin, dest, vehicle), 350);
     return () => clearTimeout(timer.current);
