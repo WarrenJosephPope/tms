@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatINR, timeUntil } from "@/lib/format";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
-import { Gavel, Clock, TrendingDown } from "lucide-react";
+import { Gavel, Clock, TrendingDown, MapPin } from "lucide-react";
 import toast from "react-hot-toast";
 
 /**
  * Live bid list with real-time Supabase Realtime subscription.
  * Used on both shipper (read-only accepts) and transporter (place bid) views.
  */
-export default function LiveAuctionPanel({ load, userType, transporterCompanyId, bidderId }) {
+export default function LiveAuctionPanel({ load, stops = [], userType, transporterCompanyId, bidderId }) {
   const [bids, setBids] = useState([]);
   const [timeLeft, setTimeLeft] = useState(timeUntil(load.auction_end_time));
   const [bidAmount, setBidAmount] = useState("");
@@ -23,6 +23,9 @@ export default function LiveAuctionPanel({ load, userType, transporterCompanyId,
   const isOpen = load.status === "open" && new Date(load.auction_end_time) > new Date();
 
   const lowestBid = bids.length > 0 ? Math.min(...bids.map((b) => b.amount)) : load.opening_price;
+
+  const pickups    = stops.filter((s) => s.stop_type === "pickup").sort((a, b) => a.stop_order - b.stop_order);
+  const deliveries = stops.filter((s) => s.stop_type === "delivery").sort((a, b) => a.stop_order - b.stop_order);
 
   // Fetch initial bids
   useEffect(() => {
@@ -144,6 +147,65 @@ export default function LiveAuctionPanel({ load, userType, transporterCompanyId,
           </div>
         </div>
       </div>
+
+      {/* Route — pickup and delivery stops */}
+      {(pickups.length > 0 || deliveries.length > 0) && (
+        <div className="card">
+          <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <MapPin size={16} /> Route Details
+          </h3>
+          <div className="space-y-5">
+            {pickups.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">
+                  Pickup {pickups.length > 1 ? "Points" : "Point"}
+                </p>
+                <div className="space-y-3">
+                  {pickups.map((stop, idx) => (
+                    <div key={stop.id} className="flex items-start gap-2.5">
+                      <span className="text-xs font-bold text-white bg-green-600 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          {stop.city}{stop.state ? `, ${stop.state}` : ""}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {stop.address}{stop.pincode ? ` — ${stop.pincode}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {deliveries.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">
+                  Delivery {deliveries.length > 1 ? "Points" : "Point"}
+                </p>
+                <div className="space-y-3">
+                  {deliveries.map((stop, idx) => (
+                    <div key={stop.id} className="flex items-start gap-2.5">
+                      <span className="text-xs font-bold text-white bg-red-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          {stop.city}{stop.state ? `, ${stop.state}` : ""}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {stop.address}{stop.pincode ? ` — ${stop.pincode}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Place bid (transporter only) */}
       {userType === "transporter" && isOpen && (
