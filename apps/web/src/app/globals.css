@@ -58,3 +58,42 @@
   .badge-approved   { @apply inline-flex items-center rounded-full bg-green-50  text-green-700  text-xs font-medium px-2 py-0.5 ring-1 ring-green-200; }
   .badge-rejected   { @apply inline-flex items-center rounded-full bg-red-50    text-red-700    text-xs font-medium px-2 py-0.5 ring-1 ring-red-200; }
 }
+
+/*
+ * Style google.maps.places.PlaceAutocompleteElement (gmp-place-autocomplete)
+ * to match the project's .input design token.
+ *
+ * The element uses CSS custom properties for theming.
+ * Reference: https://developers.google.com/maps/documentation/javascript/place-autocomplete-element
+ */
+.places-autocomplete-root gmp-place-autocomplete {
+  width: 100%;
+  display: block;
+
+  /*
+   * The shadow DOM's :host rule sets background-color directly, but outer
+   * styles beat :host styles, so we apply it here too.
+   */
+  background-color: #ffffff;
+  color: #000000;
+
+  /* Match .input colours and shape */
+  --gmp-material-color-background: #ffffff;
+  --gmp-material-color-on-background: #0f172a;       /* slate-900 */
+  --gmp-material-color-on-surface: #0f172a;
+  --gmp-material-color-on-surface-variant: #94a3b8;  /* placeholder-slate-400 */
+  --gmp-material-color-outline: #e2e8f0;             /* surface-border / slate-200 */
+  --gmp-material-color-primary: #f97316;             /* brand-500 */
+  --gmp-material-color-surface: #ffffff;
+  --gmp-material-color-surface-container-low: #f8fafc;
+  --gmp-material-color-surface-variant: #f1f5f9;
+
+  /* Match font sizing */
+  --gmp-material-font-body-large-size: 0.875rem;     /* text-sm */
+  --gmp-material-font-body-large-weight: 400;
+  --gmp-material-font-body-large-font: inherit;
+
+  /* Shape — rounded-lg */
+  --gmp-material-shape-corner-medium: 0.5rem;
+  --gmp-material-shape-corner-small: 0.5rem;
+}

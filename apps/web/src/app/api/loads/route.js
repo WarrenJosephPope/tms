@@ -31,6 +31,7 @@ export async function POST(request) {
       pickup_date, pickup_window_start, pickup_window_end,
       opening_price, auction_duration_hours, auto_accept_lowest,
       notes, special_instructions,
+      stops, // Array<{ address, city, state, pincode, lat, lng, stop_type, stop_order }>
     } = body;
 
     // Input validation
@@ -76,6 +77,27 @@ export async function POST(request) {
     if (insertError) {
       console.error("Load insert error:", insertError);
       return NextResponse.json({ error: "Failed to create load" }, { status: 500 });
+    }
+
+    // Insert stops if provided
+    if (Array.isArray(stops) && stops.length > 0) {
+      const stopRows = stops.map((s) => ({
+        load_id:    load.id,
+        stop_type:  s.stop_type,
+        stop_order: Number(s.stop_order ?? 0),
+        address:    s.address?.trim() ?? "",
+        city:       s.city?.trim() ?? "",
+        state:      s.state?.trim() || null,
+        pincode:    s.pincode?.trim() || null,
+        lat:        s.lat != null ? Number(s.lat) : null,
+        lng:        s.lng != null ? Number(s.lng) : null,
+      }));
+
+      const { error: stopsError } = await admin.from("load_stops").insert(stopRows);
+      if (stopsError) {
+        console.error("load_stops insert error:", stopsError);
+        // Non-fatal: load was created, just log the error
+      }
     }
 
     return NextResponse.json(load, { status: 201 });
