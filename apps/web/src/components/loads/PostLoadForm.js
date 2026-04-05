@@ -1,27 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-
-const VEHICLE_TYPES = [
-  { value: "closed_container", label: "Closed Container" },
-  { value: "open_trailer",     label: "Open Trailer" },
-  { value: "flatbed",          label: "Flatbed" },
-  { value: "tanker",           label: "Tanker" },
-  { value: "refrigerated",     label: "Refrigerated" },
-  { value: "mini_truck",       label: "Mini Truck" },
-  { value: "pickup",           label: "Pickup" },
-];
 
 export default function PostLoadForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const [allowedTypes, setAllowedTypes] = useState(null); // null = loading
+  const [typesError, setTypesError] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/loads/allowed-types")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) throw new Error(data.error);
+        setAllowedTypes(data);
+      })
+      .catch((e) => setTypesError(e.message || "Failed to load types"));
+  }, []);
+
   const [form, setForm] = useState({
     commodity: "",
     weight_tonnes: "",
-    vehicle_type_req: "closed_container",
+    vehicle_type_req: "",
     origin_address: "",
     origin_city: "",
     origin_state: "",
@@ -69,16 +72,55 @@ export default function PostLoadForm() {
     </h3>
   );
 
+  // Set default selections once types are loaded
+  useEffect(() => {
+    if (allowedTypes) {
+      setForm((prev) => ({
+        ...prev,
+        commodity: prev.commodity || "",
+        vehicle_type_req: prev.vehicle_type_req || (allowedTypes.vehicleTypes[0]?.key ?? ""),
+      }));
+    }
+  }, [allowedTypes]);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
 
       {/* Cargo */}
       <div className="card space-y-4">
         {section("Cargo Details")}
+
+        {typesError && (
+          <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-3">
+            {typesError}. Please refresh or contact an admin.
+          </div>
+        )}
+
+        {!typesError && allowedTypes?.commodities.length === 0 && (
+          <div className="bg-yellow-50 text-yellow-700 text-sm rounded-lg px-4 py-3">
+            No commodity types have been allotted to your company yet. Contact an admin.
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Commodity *</label>
-            <input className={inputCls} value={form.commodity} onChange={set("commodity")} placeholder="e.g. FMCG Goods, Steel Coils" required />
+            {allowedTypes === null ? (
+              <div className="input bg-slate-50 text-slate-400">Loading…</div>
+            ) : (
+              <select
+                className={inputCls}
+                value={form.commodity}
+                onChange={set("commodity")}
+                required
+                disabled={!allowedTypes.commodities.length}
+              >
+                <option value="" disabled>Select commodity…</option>
+                {allowedTypes.commodities.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label className="label">Weight (Tonnes) *</label>
@@ -86,11 +128,22 @@ export default function PostLoadForm() {
           </div>
           <div className="sm:col-span-2">
             <label className="label">Vehicle Type Required *</label>
-            <select className={inputCls} value={form.vehicle_type_req} onChange={set("vehicle_type_req")} required>
-              {VEHICLE_TYPES.map((v) => (
-                <option key={v.value} value={v.value}>{v.label}</option>
-              ))}
-            </select>
+            {allowedTypes === null ? (
+              <div className="input bg-slate-50 text-slate-400">Loading…</div>
+            ) : (
+              <select
+                className={inputCls}
+                value={form.vehicle_type_req}
+                onChange={set("vehicle_type_req")}
+                required
+                disabled={!allowedTypes.vehicleTypes.length}
+              >
+                <option value="" disabled>Select vehicle type…</option>
+                {allowedTypes.vehicleTypes.map((v) => (
+                  <option key={v.key} value={v.key}>{v.label}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
       </div>

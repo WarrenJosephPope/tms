@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import toast from "react-hot-toast";
 import { ClockIcon, CheckCircleIcon, XCircleIcon, UserIcon, BuildingIcon } from "lucide-react";
 
@@ -17,6 +17,7 @@ export default function RegistrationRequestsPage() {
   const [selected, setSelected] = useState(null); // request being reviewed
   const [reviewNotes, setReviewNotes] = useState("");
   const [isPending, startTransition] = useTransition();
+  const inFlightRef = useRef(false);
 
   async function fetchRequests() {
     setLoading(true);
@@ -43,17 +44,23 @@ export default function RegistrationRequestsPage() {
   }
 
   function handleAction(action) {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     startTransition(async () => {
-      const res = await fetch("/api/admin/registration-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selected.id, action, review_notes: reviewNotes }),
-      });
-      const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "Action failed"); return; }
-      toast.success(action === "approve" ? "Request approved" : "Request rejected");
-      closeReview();
-      fetchRequests();
+      try {
+        const res = await fetch("/api/admin/registration-requests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: selected.id, action, review_notes: reviewNotes }),
+        });
+        const data = await res.json();
+        if (!res.ok) { toast.error(data.error || "Action failed"); return; }
+        toast.success(action === "approve" ? "Request approved" : "Request rejected");
+        closeReview();
+        fetchRequests();
+      } finally {
+        inFlightRef.current = false;
+      }
     });
   }
 

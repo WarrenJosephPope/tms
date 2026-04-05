@@ -92,34 +92,66 @@ export async function POST(request) {
     }
 
     if (action === "reject") {
-      const { error: updateError } = await admin
+      // Atomically claim the request: only succeeds if status is still "pending"
+      const { data: claimed, error: claimError } = await admin
         .from("registration_requests")
         .update({
           status: "rejected",
           reviewed_by: user.id,
           review_notes: review_notes?.trim() || null,
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
 
-      if (updateError) {
-        console.error("Reject request error:", updateError);
+      if (claimError) {
+        console.error("Reject request error:", claimError);
         return NextResponse.json({ error: "Failed to reject request" }, { status: 500 });
+      }
+      if (!claimed) {
+        return NextResponse.json({ error: "Request has already been reviewed" }, { status: 409 });
       }
 
       return NextResponse.json({ success: true });
     }
 
     // action === "approve"
-    // 1. Create company
+    // 1. Atomically claim the request by updating status first.
+    //    Using .eq("status", "pending") as an atomic guard ensures that even if two
+    //    requests arrive simultaneously, only one will succeed here — the second
+    //    will get 0 rows back (Postgres row-level locking) and return 409.
+    const { data: claimed, error: claimError } = await admin
+      .from("registration_requests")
+      .update({
+        status: "approved",
+        reviewed_by: user.id,
+        review_notes: review_notes?.trim() || null,
+      })
+      .eq("id", id)
+      .eq("status", "pending")
+      .select("*")
+      .maybeSingle();
+
+    if (claimError) {
+      console.error("Claim request error:", claimError);
+      return NextResponse.json({ error: "Failed to approve request" }, { status: 500 });
+    }
+    if (!claimed) {
+      // Another request already processed this — no company was created yet
+      return NextResponse.json({ error: "Request has already been reviewed" }, { status: 409 });
+    }
+
+    // 2. Create company
     const { data: company, error: companyError } = await admin
       .from("companies")
       .insert({
-        name: regRequest.company_name,
-        user_type: regRequest.user_type,
-        gstin: regRequest.gstin || null,
-        phone: regRequest.phone,
-        city: regRequest.city || null,
-        state: regRequest.state || null,
+        name: claimed.company_name,
+        user_type: claimed.user_type,
+        gstin: claimed.gstin || null,
+        phone: claimed.phone,
+        city: claimed.city || null,
+        state: claimed.state || null,
         kyc_status: "pending",
       })
       .select()
@@ -127,43 +159,37 @@ export async function POST(request) {
 
     if (companyError) {
       console.error("Company insert error:", companyError);
+      // Rollback the status claim so the admin can retry
+      await admin
+        .from("registration_requests")
+        .update({ status: "pending", reviewed_by: null, review_notes: null })
+        .eq("id", id);
       return NextResponse.json({ error: "Failed to create company" }, { status: 500 });
     }
 
-    // 2. Create user profile
-    const roleField = regRequest.user_type === "shipper" ? "shipper_role" : "transporter_role";
+    // 3. Create user profile
+    const roleField = claimed.user_type === "shipper" ? "shipper_role" : "transporter_role";
 
     const { error: profileError } = await admin
       .from("user_profiles")
       .insert({
-        id: regRequest.user_id,
+        id: claimed.user_id,
         company_id: company.id,
-        full_name: regRequest.full_name,
-        phone: regRequest.phone,
-        user_type: regRequest.user_type,
+        full_name: claimed.full_name,
+        phone: claimed.phone,
+        user_type: claimed.user_type,
         [roleField]: "account_owner",
       });
 
     if (profileError) {
       console.error("Profile insert error:", profileError);
-      // Roll back company (best effort)
+      // Rollback company and status claim
       await admin.from("companies").delete().eq("id", company.id);
+      await admin
+        .from("registration_requests")
+        .update({ status: "pending", reviewed_by: null, review_notes: null })
+        .eq("id", id);
       return NextResponse.json({ error: "Failed to create user profile" }, { status: 500 });
-    }
-
-    // 3. Mark request approved
-    const { error: updateError } = await admin
-      .from("registration_requests")
-      .update({
-        status: "approved",
-        reviewed_by: user.id,
-        review_notes: review_notes?.trim() || null,
-      })
-      .eq("id", id);
-
-    if (updateError) {
-      console.error("Approve status update error:", updateError);
-      // Non-fatal — company + profile created successfully
     }
 
     return NextResponse.json({ success: true, company_id: company.id });

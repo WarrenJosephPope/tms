@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   BarChart3,
   ChevronRight,
+  Layers,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -39,6 +40,7 @@ const NAV_TRANSPORTER = [
 const NAV_ADMIN = [
   { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
   { label: "Companies", href: "/dashboard/admin/companies", icon: ShieldCheck },
+  { label: "Type Catalog", href: "/dashboard/admin/catalog", icon: Layers },
   { label: "All Loads", href: "/dashboard/admin/loads", icon: Package },
   { label: "All Trips", href: "/dashboard/admin/trips", icon: Truck },
   { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
