@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -58,7 +59,14 @@ export default function Sidebar({ profile }) {
     <aside className="hidden md:flex w-60 flex-shrink-0 flex-col bg-white border-r border-surface-border h-full">
       {/* Logo */}
       <div className="h-16 flex items-center px-5 border-b border-surface-border">
-        <span className="text-lg font-bold text-brand-600">eParivahan</span>
+        <Image
+          src="/logo.png"
+          alt="eParivahan"
+          width={160}
+          height={40}
+          className="object-contain"
+          priority
+        />
       </div>
 
       {/* Company chip */}

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -15,7 +16,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-white">
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-surface-border max-w-7xl mx-auto">
-        <span className="text-xl font-bold text-brand-600">eParivahan</span>
+        <Image src="/logo.png" alt="eParivahan" width={160} height={40} className="object-contain" priority />
         <div className="flex items-center gap-3">
           <Link href="/login" className="btn-secondary text-sm">Log in</Link>
           <Link href="/register" className="btn-primary text-sm">Get started</Link>

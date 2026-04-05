@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Building2, Package, Truck, ShieldCheck } from "lucide-react";
+import { Building2, Package, Truck, ShieldCheck, ClipboardList } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
 
@@ -9,7 +9,7 @@ export const metadata = { title: "Admin Dashboard" };
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
-  const [companiesResult, loadsResult, tripsResult, pendingKycResult] = await Promise.all([
+  const [companiesResult, loadsResult, tripsResult, pendingKycResult, pendingRegistrationsResult] = await Promise.all([
     supabase.from("companies").select("id", { count: "exact", head: true }),
     supabase.from("loads").select("id", { count: "exact", head: true }),
     supabase.from("trips").select("id", { count: "exact", head: true }).eq("status", "in_transit"),
@@ -17,6 +17,7 @@ export default async function AdminDashboardPage() {
       .eq("kyc_status", "pending")
       .order("created_at", { ascending: true })
       .limit(10),
+    supabase.from("registration_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
   ]);
 
   const pendingCompanies = pendingKycResult.data ?? [];
@@ -30,6 +31,7 @@ export default async function AdminDashboardPage() {
         <StatCard label="Total Loads" value={loadsResult.count ?? 0} icon={<Package size={20} />} color="brand" />
         <StatCard label="Active Trips" value={tripsResult.count ?? 0} icon={<Truck size={20} />} color="green" />
         <StatCard label="Pending KYC" value={pendingKycResult.count ?? 0} icon={<ShieldCheck size={20} />} color="yellow" />
+        <StatCard label="Registration Requests" value={pendingRegistrationsResult.count ?? 0} icon={<ClipboardList size={20} />} color="yellow" />
       </div>
 
       {/* Pending KYC companies */}
@@ -72,6 +74,25 @@ export default async function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      {/* Pending registration requests */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-slate-900">Pending Registration Requests</h2>
+          <Link href="/dashboard/admin/registration-requests" className="text-sm text-brand-600 hover:underline">View all →</Link>
+        </div>
+        {(pendingRegistrationsResult.count ?? 0) === 0 ? (
+          <p className="text-sm text-slate-400 py-6 text-center">No pending registration requests ✓</p>
+        ) : (
+          <p className="text-sm text-slate-600 py-4 text-center">
+            <span className="font-semibold text-slate-900">{pendingRegistrationsResult.count}</span>{" "}
+            registration {pendingRegistrationsResult.count === 1 ? "request" : "requests"} awaiting review.{" "}
+            <Link href="/dashboard/admin/registration-requests" className="text-brand-600 font-medium hover:underline">
+              Review now →
+            </Link>
+          </p>
         )}
       </div>
     </div>

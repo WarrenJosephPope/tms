@@ -86,9 +86,8 @@ export default function RegisterTypePage() {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Registration failed"); return; }
-      toast.success("Account created!");
-      router.push("/dashboard");
-      router.refresh();
+      toast.success("Request submitted! Awaiting admin approval.");
+      router.push("/register/pending");
     });
   }
 

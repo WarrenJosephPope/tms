@@ -15,7 +15,17 @@ export default async function DashboardLayout({ children }) {
     .eq("id", user.id)
     .single();
 
-  if (!profile) redirect("/register");
+  if (!profile) {
+    // Check if the user has submitted a registration request
+    const { data: regRequest } = await supabase
+      .from("registration_requests")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (regRequest) redirect("/register/pending");
+    redirect("/register");
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface-muted">

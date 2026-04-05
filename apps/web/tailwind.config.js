@@ -7,5 +7,6 @@ module.exports = {
     "./src/app/**/*.{js,jsx}",
     "./src/components/**/*.{js,jsx}",
     "./src/lib/**/*.{js,jsx}",
+    "../../packages/tailwind-config/tailwind.config.js",
   ],
 };

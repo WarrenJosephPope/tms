@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -58,7 +59,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-surface-muted px-4">
       <div className="card w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-brand-600 mb-1">eParivahan</h1>
+          <div className="flex justify-center mb-3">
+            <Image src="/logo.png" alt="eParivahan" width={180} height={45} className="object-contain" priority />
+          </div>
           <p className="text-sm text-slate-500">Sign in with your mobile number</p>
         </div>
 

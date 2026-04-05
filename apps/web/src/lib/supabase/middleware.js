@@ -45,6 +45,7 @@ export async function updateSession(request) {
     "/register",
     "/register/shipper",
     "/register/transporter",
+    "/register/pending",
     "/auth/callback",
     "/auth/confirm",
   ];
