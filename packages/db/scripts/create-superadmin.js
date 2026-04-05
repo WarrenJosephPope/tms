@@ -52,10 +52,10 @@ const adminRole   = args["role"]         || "super_admin";
 if (!email || !password || !fullName || !phone) {
   console.error(
     "Usage: node scripts/create-superadmin.js \\\n" +
-    '  --email admin@eparivahan.in \\\n' +
+    '  --email admin@eparivahan.com \\\n' +
     '  --password "SecurePass123!" \\\n' +
     '  --name "Admin User" \\\n' +
-    '  --phone "+91XXXXXXXXXX"'
+    '  --phone "+919876543210"'
   );
   process.exit(1);
 }
