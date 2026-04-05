@@ -122,34 +122,47 @@ async function main() {
   const userId = authData.user.id;
   console.log(`✓ Auth user created:  ${userId}`);
 
-  // 2. Upsert admin company (idempotent — safe to re-run)
-  const { data: company, error: companyError } = await supabase
-    .from("companies")
-    .upsert(
-      {
-        name:       companyName,
-        user_type:  "admin",
-        phone:      phone,
-        email:      email,
-        kyc_status: "approved",
-        is_active:  true,
-      },
-      {
-        onConflict:        "name,user_type",
-        ignoreDuplicates:  false,
-      }
-    )
-    .select("id")
-    .single();
+  // 2. Find or create admin company (idempotent — safe to re-run)
+  let companyId;
+  {
+    const { data: existing, error: findError } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("name", companyName)
+      .eq("user_type", "admin")
+      .maybeSingle();
 
-  if (companyError) {
-    console.error("Failed to upsert admin company:", companyError.message);
-    // Clean up the auth user we just created
-    await supabase.auth.admin.deleteUser(userId);
-    process.exit(1);
+    if (findError) {
+      console.error("Failed to query admin company:", findError.message);
+      await supabase.auth.admin.deleteUser(userId);
+      process.exit(1);
+    }
+
+    if (existing) {
+      companyId = existing.id;
+    } else {
+      const { data: created, error: createError } = await supabase
+        .from("companies")
+        .insert({
+          name:       companyName,
+          user_type:  "admin",
+          phone:      phone,
+          email:      email,
+          kyc_status: "approved",
+          is_active:  true,
+        })
+        .select("id")
+        .single();
+
+      if (createError) {
+        console.error("Failed to create admin company:", createError.message);
+        await supabase.auth.admin.deleteUser(userId);
+        process.exit(1);
+      }
+      companyId = created.id;
+    }
   }
 
-  const companyId = company.id;
   console.log(`✓ Admin company ready: ${companyId}`);
 
   // 3. Insert user_profile
