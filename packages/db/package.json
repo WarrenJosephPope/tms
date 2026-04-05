@@ -4,10 +4,11 @@
   "private": true,
   "main": "src/index.js",
   "scripts": {
+    "db:push": "node scripts/db-push.js",
+    "db:push:dry-run": "node scripts/db-push.js --dry-run",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
-    "db:push": "supabase db push",
     "db:status": "supabase status"
   },
   "dependencies": {
