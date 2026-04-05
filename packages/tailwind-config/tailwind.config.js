@@ -11,17 +11,31 @@ module.exports = {
       },
       colors: {
         brand: {
-          50:  "#fff7ed",
-          100: "#ffedd5",
-          200: "#fed7aa",
-          300: "#fdba74",
-          400: "#fb923c",
-          500: "#f97316",  // primary orange — Indian logistics feel
-          600: "#ea580c",
-          700: "#c2410c",
-          800: "#9a3412",
-          900: "#7c2d12",
-          950: "#431407",
+          50:  "#eff3fe",
+          100: "#dce5fc",
+          200: "#b2c7f8",
+          300: "#7ea1f2",
+          400: "#4a77e8",
+          500: "#1e4dd0",  // interactive navy-blue
+          600: "#1a3dab",
+          700: "#1a2d85",
+          800: "#1a2464",  // eParivahan deep navy
+          900: "#111848",
+          950: "#090f2f",
+        },
+        accent: {
+          DEFAULT: "#cc2229",
+          50:  "#fff1f1",
+          100: "#ffddde",
+          200: "#ffc0c1",
+          300: "#ff9395",
+          400: "#ff5659",
+          500: "#ff1e22",
+          600: "#ee0a0e",
+          700: "#cc2229",  // eParivahan red
+          800: "#a11b1f",
+          900: "#851c1f",
+          950: "#490b0d",
         },
         surface: {
           DEFAULT: "#ffffff",
