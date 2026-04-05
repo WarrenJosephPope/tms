@@ -25,6 +25,7 @@ const NAV_SHIPPER = [
   { label: "My Loads", href: "/dashboard/shipper/loads", icon: Package },
   { label: "Post a Load", href: "/dashboard/shipper/loads/new", icon: Gavel },
   { label: "Tracking", href: "/dashboard/shipper/tracking", icon: MapPin },
+  { label: "Team", href: "/dashboard/shipper/team", icon: Users, ownerOnly: true },
   { label: "Analytics", href: "/dashboard/shipper/analytics", icon: BarChart3 },
 ];
 
@@ -35,6 +36,7 @@ const NAV_TRANSPORTER = [
   { label: "Active Trips", href: "/dashboard/transporter/trips", icon: MapPin },
   { label: "Fleet", href: "/dashboard/transporter/fleet", icon: Truck },
   { label: "Drivers", href: "/dashboard/transporter/drivers", icon: Users },
+  { label: "Team", href: "/dashboard/transporter/team", icon: Users, ownerOnly: true },
   { label: "Documents", href: "/dashboard/transporter/documents", icon: FileText },
 ];
 
@@ -56,7 +58,15 @@ const NAV_BY_TYPE = {
 
 export default function Sidebar({ profile, isOpen, onClose }) {
   const pathname = usePathname();
-  const nav = NAV_BY_TYPE[profile.user_type] ?? [];
+  const allNav = NAV_BY_TYPE[profile.user_type] ?? [];
+
+  // Determine if the user is an account_owner
+  const isAccountOwner =
+    profile.shipper_role === "account_owner" ||
+    profile.transporter_role === "account_owner";
+
+  // Filter out ownerOnly items for non-owners
+  const nav = allNav.filter((item) => !item.ownerOnly || isAccountOwner);
 
   // Find the most specific nav item that matches the current path (longest prefix wins).
   // This prevents parent routes like /dashboard/admin from staying highlighted on sub-pages.
@@ -108,7 +118,7 @@ export default function Sidebar({ profile, isOpen, onClose }) {
 
       {/* Nav links */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {nav.map(({ label, href, icon: Icon }) => {
+        {nav.map(({ label, href, icon: Icon, ownerOnly: _ }) => {
           const active = activeHref === href;
           return (
             <Link

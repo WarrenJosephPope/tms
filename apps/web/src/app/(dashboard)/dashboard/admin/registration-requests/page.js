@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { ClockIcon, CheckCircleIcon, XCircleIcon, UserIcon, BuildingIcon } from "lucide-react";
+import { ClockIcon, CheckCircleIcon, XCircleIcon, UserIcon, BuildingIcon, Search } from "lucide-react";
+import Pagination from "@/components/ui/Pagination";
 
 const STATUS_BADGE = {
   pending:  { label: "Pending",  className: "bg-yellow-100 text-yellow-800" },
@@ -11,9 +13,14 @@ const STATUS_BADGE = {
 };
 
 export default function RegistrationRequestsPage() {
+  const searchParamsHook = useSearchParams();
+  const limit = Math.max(1, parseInt(searchParamsHook.get("limit") ?? "10", 10) || 10);
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null); // request being reviewed
   const [reviewNotes, setReviewNotes] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -64,31 +71,64 @@ export default function RegistrationRequestsPage() {
     });
   }
 
-  const filtered = requests.filter((r) => filter === "all" || r.status === filter);
+  const byStatus = requests.filter((r) => filter === "all" || r.status === filter);
+  const filtered = byStatus.filter((r) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      r.full_name?.toLowerCase().includes(q) ||
+      r.company_name?.toLowerCase().includes(q) ||
+      r.phone?.toLowerCase().includes(q)
+    );
+  });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+  const paginated = filtered.slice((page - 1) * limit, page * limit);
+
+  function handleFilterChange(f) {
+    setFilter(f);
+    setPage(1);
+  }
+
+  function handleSearchChange(e) {
+    setSearch(e.target.value);
+    setPage(1);
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900">Registration Requests</h1>
-        <div className="flex flex-wrap gap-2">
-          {["all", "pending", "approved", "rejected"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                filter === f
-                  ? "bg-brand-500 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-              {f !== "all" && (
-                <span className="ml-1.5 text-xs opacity-75">
-                  ({requests.filter((r) => r.status === f).length})
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="search"
+              value={search}
+              onChange={handleSearchChange}
+              placeholder="Search requests…"
+              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 w-44"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["all", "pending", "approved", "rejected"].map((f) => (
+              <button
+                key={f}
+                onClick={() => handleFilterChange(f)}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                  filter === f
+                    ? "bg-brand-500 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {f !== "all" && (
+                  <span className="ml-1.5 text-xs opacity-75">
+                    ({requests.filter((r) => r.status === f).length})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -97,9 +137,10 @@ export default function RegistrationRequestsPage() {
           <p className="text-sm text-slate-400 py-12 text-center">Loading…</p>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-slate-400 py-12 text-center">
-            No {filter !== "all" ? filter : ""} registration requests.
+            No {filter !== "all" ? filter : ""} registration requests{search ? " matching your search" : ""}.
           </p>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -114,7 +155,7 @@ export default function RegistrationRequestsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border">
-                {filtered.map((req) => {
+                {paginated.map((req) => {
                   const badge = STATUS_BADGE[req.status];
                   return (
                     <tr key={req.id} className="hover:bg-slate-50 transition-colors">
@@ -159,6 +200,10 @@ export default function RegistrationRequestsPage() {
               </tbody>
             </table>
           </div>
+          <div className="px-4">
+            <Pagination page={page} totalPages={totalPages} onPage={setPage} />
+          </div>
+          </>
         )}
       </div>
 

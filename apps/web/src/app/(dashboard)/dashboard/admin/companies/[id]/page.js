@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Building2 } from "lucide-react";
 import TypeAllotmentsPanel from "./TypeAllotmentsPanel";
+import CompanyUsersPanel from "./CompanyUsersPanel";
 
 export async function generateMetadata({ params }) {
   return { title: "Company — Admin" };
@@ -74,6 +75,11 @@ export default async function AdminCompanyDetailPage({ params }) {
             </div>
           ))}
         </dl>
+      </div>
+
+      {/* Users */}
+      <div className="card">
+        <CompanyUsersPanel companyId={company.id} userType={company.user_type} />
       </div>
 
       {/* Type allotments — only meaningful for shippers */}

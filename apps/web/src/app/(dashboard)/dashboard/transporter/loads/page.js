@@ -1,24 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { formatINR, timeUntil } from "@/lib/format";
+import TransporterLoadsFilters from "./TransporterLoadsFilters";
+import Pagination from "@/components/ui/Pagination";
 
 export const metadata = { title: "Load Market" };
-
-const VEHICLE_TYPE_OPTIONS = [
-  { value: "", label: "All Vehicles" },
-  { value: "closed_container", label: "Closed Container" },
-  { value: "open_trailer",     label: "Open Trailer" },
-  { value: "flatbed",          label: "Flatbed" },
-  { value: "tanker",           label: "Tanker" },
-  { value: "refrigerated",     label: "Refrigerated" },
-  { value: "mini_truck",       label: "Mini Truck" },
-];
 
 export default async function TransporterLoadsPage({ searchParams }) {
   const params = await searchParams;
   const vehicleFilter = params.vehicle ?? "";
   const originFilter  = params.origin  ?? "";
   const destFilter    = params.dest    ?? "";
+  const limit = Math.max(1, parseInt(params.limit ?? "10", 10) || 10);
+  const page  = Math.max(1, parseInt(params.page  ?? "1",  10) || 1);
+  const from  = (page - 1) * limit;
+  const to    = from + limit - 1;
 
   const supabase = await createClient();
 
@@ -28,51 +24,44 @@ export default async function TransporterLoadsPage({ searchParams }) {
       id, origin_city, dest_city, commodity, opening_price,
       auction_end_time, vehicle_type_req, weight_tonnes, pickup_date,
       shipper_company:companies(name)
-    `)
+    `, { count: "exact" })
     .eq("status", "open")
     .gt("auction_end_time", new Date().toISOString())
-    .order("auction_end_time", { ascending: true });
+    .order("auction_end_time", { ascending: true })
+    .range(from, to);
 
   if (vehicleFilter) query = query.eq("vehicle_type_req", vehicleFilter);
   if (originFilter)  query = query.ilike("origin_city", `%${originFilter}%`);
   if (destFilter)    query = query.ilike("dest_city", `%${destFilter}%`);
 
-  const { data: loads } = await query;
+  const { data: loads = [], count } = await query;
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / limit));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Load Market</h1>
-        <span className="text-sm text-slate-500">{loads?.length ?? 0} open loads</span>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Load Market</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            {count ?? 0} open loads{totalPages > 1 && ` — page ${page} of ${totalPages}`}
+          </p>
+        </div>
       </div>
 
       {/* Filters */}
-      <form method="GET" className="flex flex-wrap gap-3">
-        <input
-          name="origin" defaultValue={originFilter} placeholder="Origin city"
-          className="input max-w-xs"
-        />
-        <input
-          name="dest" defaultValue={destFilter} placeholder="Destination city"
-          className="input max-w-xs"
-        />
-        <select name="vehicle" defaultValue={vehicleFilter} className="input max-w-xs">
-          {VEHICLE_TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <button type="submit" className="btn-primary px-5">Filter</button>
-        {(vehicleFilter || originFilter || destFilter) && (
-          <Link href="/dashboard/transporter/loads" className="btn-secondary px-5">Clear</Link>
-        )}
-      </form>
+      <TransporterLoadsFilters
+        vehicleFilter={vehicleFilter}
+        originFilter={originFilter}
+        destFilter={destFilter}
+      />
 
       {/* Load cards */}
-      {!loads?.length ? (
+      {loads.length === 0 ? (
         <div className="card py-16 text-center text-slate-400">
           <p className="text-sm">No open loads match your filters.</p>
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {loads.map((load) => (
             <Link
@@ -103,6 +92,8 @@ export default async function TransporterLoadsPage({ searchParams }) {
             </Link>
           ))}
         </div>
+        <Pagination page={page} totalPages={totalPages} />
+        </>
       )}
     </div>
   );
