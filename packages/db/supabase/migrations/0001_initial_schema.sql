@@ -348,10 +348,10 @@ CREATE TABLE location_pings (
   recorded_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Partial index: only keep last 30 days in hot index for active trips
+-- Partial index using NOW() is illegal (volatile function).
+-- Use a plain index; prune old rows via a scheduled job or pg_partman instead.
 CREATE INDEX idx_location_pings_trip_id ON location_pings (trip_id, recorded_at DESC);
-CREATE INDEX idx_location_pings_recent ON location_pings (recorded_at DESC)
-  WHERE recorded_at > NOW() - INTERVAL '30 days';
+CREATE INDEX idx_location_pings_recorded_at ON location_pings (recorded_at DESC);
 
 -- ============================================================
 -- GEOFENCE EVENTS
