@@ -211,7 +211,7 @@ export default function PostLoadForm() {
     <>
       {/* Load Google Maps JS API — v=beta required for PlaceAutocompleteElement */}
       <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places,marker&v=beta`}
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places,marker,directions&v=beta`}
         onLoad={() => setMapsLoaded(true)}
         strategy="lazyOnload"
       />

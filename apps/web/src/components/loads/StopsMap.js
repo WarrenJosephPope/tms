@@ -18,7 +18,7 @@ export default function StopsMap({ stops, mapsLoaded, className = "" }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
-  const polylineRef = useRef(null);
+  const directionsRendererRef = useRef(null);
 
   // Initialise map once
   useEffect(() => {
@@ -31,32 +31,46 @@ export default function StopsMap({ stops, mapsLoaded, className = "" }) {
       fullscreenControl: false,
       mapId: "DEMO_MAP_ID", // required for AdvancedMarkerElement
     });
-    // Trigger marker rendering for any stops that arrived before the map was ready
-    markersRef.current = []; // ensure clean state after map init
+
+    directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
+      map: mapRef.current,
+      suppressMarkers: true,   // we draw our own pins
+      preserveViewport: true,  // we handle fitBounds manually
+      polylineOptions: {
+        strokeColor: LINE_COLOR,
+        strokeOpacity: 0.85,
+        strokeWeight: 4,
+      },
+    });
+
+    markersRef.current = [];
   }, [mapsLoaded]);
 
-  // Update markers + polyline whenever stops or map readiness change
+  // Update markers + route whenever stops or map readiness change
   useEffect(() => {
-    if (!mapsLoaded) return; // map not yet available
-    if (!mapRef.current) return;
+    if (!mapsLoaded || !mapRef.current) return;
 
     // Remove old markers
     markersRef.current.forEach((m) => { m.map = null; });
     markersRef.current = [];
 
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null);
-      polylineRef.current = null;
-    }
+    // Hide previous route
+    directionsRendererRef.current?.setMap(null);
 
     const validStops = stops.filter((s) => s.lat != null && s.lng != null);
     if (!validStops.length) return;
+
+    // Enforce order: all pickups (in their original sequence) then all deliveries
+    const orderedStops = [
+      ...validStops.filter((s) => s.stop_type === "pickup"),
+      ...validStops.filter((s) => s.stop_type === "delivery"),
+    ];
 
     const bounds = new window.google.maps.LatLngBounds();
     let pickupCount = 0;
     let deliveryCount = 0;
 
-    validStops.forEach((stop) => {
+    orderedStops.forEach((stop) => {
       const pos = { lat: Number(stop.lat), lng: Number(stop.lng) };
       bounds.extend(pos);
 
@@ -80,17 +94,40 @@ export default function StopsMap({ stops, mapsLoaded, className = "" }) {
       markersRef.current.push(marker);
     });
 
-    // Draw polyline connecting stops in order
-    const path = validStops.map((s) => ({ lat: Number(s.lat), lng: Number(s.lng) }));
-    polylineRef.current = new window.google.maps.Polyline({
-      map: mapRef.current,
-      path,
-      strokeColor: LINE_COLOR,
-      strokeOpacity: 0.8,
-      strokeWeight: 2,
-    });
+    if (orderedStops.length < 2) {
+      // Single stop — just centre on it
+      mapRef.current.fitBounds(bounds, 80);
+      return;
+    }
 
-    mapRef.current.fitBounds(bounds, 60);
+    // Request road route: pickups in order first, then deliveries in order
+    directionsRendererRef.current.setMap(mapRef.current);
+
+    const origin      = { lat: Number(orderedStops[0].lat), lng: Number(orderedStops[0].lng) };
+    const destination = { lat: Number(orderedStops[orderedStops.length - 1].lat), lng: Number(orderedStops[orderedStops.length - 1].lng) };
+    const waypoints   = orderedStops.slice(1, -1).map((s) => ({
+      location: { lat: Number(s.lat), lng: Number(s.lng) },
+      stopover: true,
+    }));
+
+    new window.google.maps.DirectionsService().route(
+      {
+        origin,
+        destination,
+        waypoints,
+        travelMode: window.google.maps.TravelMode.DRIVING,
+        optimizeWaypoints: false,
+      },
+      (result, status) => {
+        if (status === "OK") {
+          directionsRendererRef.current.setDirections(result);
+          mapRef.current.fitBounds(result.routes[0].bounds, 60);
+        } else {
+          console.error("[StopsMap] Directions request failed:", status);
+          mapRef.current.fitBounds(bounds, 60); // fall back to marker bounds
+        }
+      }
+    );
   }, [stops, mapsLoaded]);
 
   if (!mapsLoaded) {
