@@ -4,7 +4,6 @@
   "private": true,
   "main": "index.js",
   "dependencies": {
-    "eslint-config-next": "^15.1.0",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.0.0"
   },

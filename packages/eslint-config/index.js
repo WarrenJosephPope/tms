@@ -1,20 +1,17 @@
-/** @type {import('eslint').Linter.Config} */
-module.exports = {
-  extends: [
-    "next/core-web-vitals",
-    "plugin:react/recommended",
-    "plugin:react-hooks/recommended",
-  ],
-  plugins: ["react", "react-hooks"],
-  rules: {
-    "react/react-in-jsx-scope": "off",
-    "react/prop-types": "off",
-    "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
-    "no-console": ["warn", { allow: ["warn", "error"] }],
+const reactPlugin = require("eslint-plugin-react");
+
+/** @type {import('eslint').Linter.Config[]} */
+module.exports = [
+  {
+    ...reactPlugin.configs.flat.recommended,
+    settings: { react: { version: "detect" } },
   },
-  settings: {
-    react: {
-      version: "detect",
+  {
+    rules: {
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off",
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "no-console": ["warn", { allow: ["warn", "error"] }],
     },
   },
-};
+];

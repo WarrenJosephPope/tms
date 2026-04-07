@@ -1,5 +1,3 @@
-const defaultTheme = require("tailwindcss/defaultTheme");
-
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [],
@@ -7,7 +5,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", ...defaultTheme.fontFamily.sans],
+        // Inline defaults — tailwindcss/defaultTheme is not available in v4
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"],
       },
       colors: {
         brand: {

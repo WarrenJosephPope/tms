@@ -1,6 +1,6 @@
 import "./globals.css";
 import { Inter } from "next/font/google";
-import { Toaster } from "react-hot-toast";
+import ToasterClient from "@/components/ToasterClient";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -15,13 +15,7 @@ export default function RootLayout({ children }) {
     <html lang="en" className={inter.variable}>
       <body>
         {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: { borderRadius: "10px", fontSize: "14px" },
-          }}
-        />
+        <ToasterClient />
       </body>
     </html>
   );
