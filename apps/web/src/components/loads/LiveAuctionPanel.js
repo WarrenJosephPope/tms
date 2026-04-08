@@ -4,81 +4,176 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatINR, timeUntil } from "@/lib/format";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
-import { Gavel, Clock, TrendingDown, MapPin } from "lucide-react";
+import { Gavel, Clock, TrendingDown, MapPin, EyeOff, Trophy } from "lucide-react";
 import toast from "react-hot-toast";
 
 /**
- * Live bid list with real-time Supabase Realtime subscription.
- * Used on both shipper (read-only accepts) and transporter (place bid) views.
+ * Live auction panel supporting two modes:
+ *
+ * BLIND PHASE  (load.bid_start_time is set and has not yet passed)
+ *   • Transporters can place/update a single sealed bid (< opening_price).
+ *   • Transporters see only their own bid and their live position.
+ *   • Shippers see a count of sealed bids but no identities or amounts.
+ *
+ * OPEN PHASE  (bid_start_time is null, or it has passed)
+ *   • Shippers see the full bid list with Accept buttons.
+ *   • Transporters see only their own bid and live position — never other
+ *     transporters' amounts or identities.
  */
-export default function LiveAuctionPanel({ load, stops = [], userType, transporterCompanyId, bidderId }) {
+export default function LiveAuctionPanel({ load, stops = [], userType }) {
+  // ── Derived constants ──────────────────────────────────────────────────────
+  const bidStartTime  = load.bid_start_time ? new Date(load.bid_start_time) : null;
+  const auctionEndTime = new Date(load.auction_end_time);
+  const isAuctionOpen  = load.status === "open" && auctionEndTime > new Date();
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [auctionStarted, setAuctionStarted] = useState(
+    !bidStartTime || new Date() >= bidStartTime
+  );
+  const [timeLeft,   setTimeLeft]   = useState(timeUntil(load.auction_end_time));
+  const [timeToStart, setTimeToStart] = useState(
+    bidStartTime ? timeUntil(bidStartTime.toISOString()) : null
+  );
+
+  // Shipper: full bid list (only populated after auction started)
   const [bids, setBids] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(timeUntil(load.auction_end_time));
+  // Shipper: sealed-bid count during blind phase
+  const [blindBidCount, setBlindBidCount] = useState(null);
+
+  // Transporter: own best bid + rank
+  const [myPosition, setMyPosition] = useState(null); // { bid_id, amount, position, total_bids }
+
+  // Bid form
   const [bidAmount, setBidAmount] = useState("");
-  const [etaDays, setEtaDays] = useState("");
-  const [bidNote, setBidNote] = useState("");
+  const [etaDays,   setEtaDays]   = useState("");
+  const [bidNote,   setBidNote]   = useState("");
   const [submitting, setSubmitting] = useState(false);
+
   const supabase = createClient();
-
-  const isOpen = load.status === "open" && new Date(load.auction_end_time) > new Date();
-
-  const lowestBid = bids.length > 0 ? Math.min(...bids.map((b) => b.amount)) : load.opening_price;
 
   const pickups    = stops.filter((s) => s.stop_type === "pickup").sort((a, b) => a.stop_order - b.stop_order);
   const deliveries = stops.filter((s) => s.stop_type === "delivery").sort((a, b) => a.stop_order - b.stop_order);
 
-  // Fetch initial bids
-  useEffect(() => {
-    supabase
-      .from("bids")
-      .select("id, amount, eta_days, notes, status, created_at, transporter_company:companies(name)")
-      .eq("load_id", load.id)
-      .eq("status", "active")
-      .order("amount", { ascending: true })
-      .then(({ data }) => setBids(data ?? []));
+  // ── Data fetchers ──────────────────────────────────────────────────────────
+
+  const fetchPosition = useCallback(async () => {
+    const res = await fetch(`/api/loads/${load.id}/bids/position`);
+    if (res.ok) setMyPosition(await res.json());
   }, [load.id]);
 
-  // Subscribe to realtime bid changes
+  const fetchBids = useCallback(async () => {
+    const res = await fetch(`/api/loads/${load.id}/bids`);
+    if (res.ok) {
+      const data = await res.json();
+      setBids(Array.isArray(data) ? data : []);
+    }
+  }, [load.id]);
+
+  const fetchBlindCount = useCallback(async () => {
+    const res = await fetch(`/api/loads/${load.id}/bids/count`);
+    if (res.ok) {
+      const data = await res.json();
+      setBlindBidCount(data.count);
+    }
+  }, [load.id]);
+
+  // ── Initial data load ──────────────────────────────────────────────────────
   useEffect(() => {
+    if (userType === "transporter") {
+      fetchPosition();
+      // Pre-populate bid form with the transporter's existing active bid (if any).
+      // RLS ensures only their own company's bids are returned.
+      supabase
+        .from("bids")
+        .select("amount, eta_days, notes")
+        .eq("load_id", load.id)
+        .eq("status", "active")
+        .limit(1)
+        .then(({ data }) => {
+          if (data?.[0]) {
+            setBidAmount(String(data[0].amount));
+            setEtaDays(data[0].eta_days ? String(data[0].eta_days) : "");
+            setBidNote(data[0].notes ?? "");
+          }
+        });
+    } else if (userType === "shipper") {
+      if (auctionStarted) {
+        fetchBids();
+      } else {
+        fetchBlindCount();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Realtime subscription ──────────────────────────────────────────────────
+  // We use bid events only as a trigger to re-fetch server-side data.
+  // We never read sensitive details from event payloads to prevent leaking
+  // other transporters' amounts to the subscribing client.
+  useEffect(() => {
+    if (!isAuctionOpen) return;
+
     const channel = supabase
-      .channel(`bids:load_id=eq.${load.id}`)
+      .channel(`bids-panel:${load.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "bids", filter: `load_id=eq.${load.id}` },
-        (payload) => {
-          setBids((prev) => {
-            const newBid = payload.new;
-            const exists = prev.some((b) => b.id === newBid.id);
-            if (exists) return prev;
-            const updated = [...prev, newBid].sort((a, b) => a.amount - b.amount);
-            toast.success(`New bid: ${formatINR(newBid.amount)}`);
-            return updated;
-          });
+        () => {
+          if (userType === "transporter") {
+            fetchPosition();
+          } else if (auctionStarted) {
+            fetchBids();
+          } else {
+            fetchBlindCount();
+          }
         }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "bids", filter: `load_id=eq.${load.id}` },
-        (payload) => {
-          setBids((prev) =>
-            prev
-              .map((b) => (b.id === payload.new.id ? { ...b, ...payload.new } : b))
-              .filter((b) => b.status === "active")
-              .sort((a, b) => a.amount - b.amount)
-          );
+        () => {
+          if (userType === "transporter") {
+            fetchPosition();
+          } else if (auctionStarted) {
+            fetchBids();
+          } else {
+            fetchBlindCount();
+          }
         }
       )
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [load.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load.id, isAuctionOpen, auctionStarted, userType]);
 
-  // Countdown timer
+  // ── Countdown & phase-transition timer ────────────────────────────────────
   useEffect(() => {
-    const interval = setInterval(() => setTimeLeft(timeUntil(load.auction_end_time)), 10_000);
+    const interval = setInterval(() => {
+      setTimeLeft(timeUntil(load.auction_end_time));
+      if (bidStartTime) {
+        const remaining = timeUntil(bidStartTime.toISOString());
+        setTimeToStart(remaining);
+        if (!auctionStarted && new Date() >= bidStartTime) {
+          setAuctionStarted(true);
+          // Transition: load fresh data for both user types
+          if (userType === "shipper") fetchBids();
+          else fetchPosition();
+        }
+      }
+    }, 10_000);
     return () => clearInterval(interval);
-  }, [load.auction_end_time]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load.auction_end_time, bidStartTime, auctionStarted, userType]);
 
+  // ── Position polling (ensures transporter rank stays current every 10 s) ───
+  useEffect(() => {
+    if (userType !== "transporter") return;
+    const interval = setInterval(fetchPosition, 10_000);
+    return () => clearInterval(interval);
+  }, [fetchPosition, userType]);
+
+  // ── Actions ────────────────────────────────────────────────────────────────
   const placeBid = useCallback(async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -87,24 +182,22 @@ export default function LiveAuctionPanel({ load, stops = [], userType, transport
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: Number(bidAmount),
+          amount:   Number(bidAmount),
           eta_days: etaDays ? Number(etaDays) : null,
-          notes: bidNote,
+          notes:    bidNote,
         }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Bid failed"); return; }
-      toast.success("Bid placed successfully!");
-      setBidAmount("");
-      setBidNote("");
+      toast.success(auctionStarted ? "Bid placed!" : "Sealed bid submitted!");
+      await fetchPosition();
     } finally {
       setSubmitting(false);
     }
-  }, [load.id, bidAmount, etaDays, bidNote]);
+  }, [load.id, bidAmount, etaDays, bidNote, auctionStarted, fetchPosition]);
 
   const acceptBid = useCallback(async (bidId) => {
-    const yes = window.confirm("Accept this bid? This will close the auction and create a trip.");
-    if (!yes) return;
+    if (!window.confirm("Accept this bid? This will close the auction and create a trip.")) return;
     const res = await fetch(`/api/loads/${load.id}/accept`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -116,9 +209,13 @@ export default function LiveAuctionPanel({ load, stops = [], userType, transport
     window.location.reload();
   }, [load.id]);
 
+  // ── Derived display values ─────────────────────────────────────────────────
+  const lowestBid = bids.length > 0 ? Math.min(...bids.map((b) => b.amount)) : load.opening_price;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Auction header */}
+      {/* ── Auction header ── */}
       <div className="card">
         <div className="flex flex-wrap gap-4 items-start justify-between">
           <div>
@@ -133,22 +230,52 @@ export default function LiveAuctionPanel({ load, stops = [], userType, transport
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-4">
+          {/* Opening price — always visible */}
           <div className="text-center p-3 rounded-lg bg-slate-50">
             <p className="text-xs text-slate-500 mb-1">Opening Price</p>
             <p className="text-base font-bold text-slate-700">{formatINR(load.opening_price)}</p>
           </div>
-          <div className="text-center p-3 rounded-lg bg-green-50">
-            <p className="text-xs text-slate-500 mb-1 flex items-center justify-center gap-1"><TrendingDown size={12} /> Lowest Bid</p>
-            <p className="text-base font-bold text-green-700">{formatINR(lowestBid)}</p>
-          </div>
+
+          {/* Middle tile: depends on phase & role */}
+          {!auctionStarted ? (
+            <div className="text-center p-3 rounded-lg bg-amber-50">
+              <p className="text-xs text-amber-600 mb-1 flex items-center justify-center gap-1">
+                <EyeOff size={12} /> Bidding Opens
+              </p>
+              <p className="text-base font-bold text-amber-700">{timeToStart}</p>
+            </div>
+          ) : userType === "transporter" && myPosition ? (
+            <div className="text-center p-3 rounded-lg bg-green-50">
+              <p className="text-xs text-slate-500 mb-1">Your Bid</p>
+              <p className="text-base font-bold text-green-700">{formatINR(myPosition.amount)}</p>
+            </div>
+          ) : userType === "shipper" ? (
+            <div className="text-center p-3 rounded-lg bg-green-50">
+              <p className="text-xs text-slate-500 mb-1 flex items-center justify-center gap-1">
+                <TrendingDown size={12} /> Lowest Bid
+              </p>
+              <p className="text-base font-bold text-green-700">{formatINR(lowestBid)}</p>
+            </div>
+          ) : (
+            <div className="text-center p-3 rounded-lg bg-slate-50">
+              <p className="text-xs text-slate-500 mb-1">Your Bid</p>
+              <p className="text-base font-bold text-slate-400">—</p>
+            </div>
+          )}
+
+          {/* Time left */}
           <div className="text-center p-3 rounded-lg bg-brand-50">
-            <p className="text-xs text-slate-500 mb-1 flex items-center justify-center gap-1"><Clock size={12} /> Time Left</p>
-            <p className={`text-base font-bold ${isOpen ? "text-brand-700" : "text-red-600"}`}>{timeLeft}</p>
+            <p className="text-xs text-slate-500 mb-1 flex items-center justify-center gap-1">
+              <Clock size={12} /> Time Left
+            </p>
+            <p className={`text-base font-bold ${isAuctionOpen ? "text-brand-700" : "text-red-600"}`}>
+              {timeLeft}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Route — pickup and delivery stops */}
+      {/* ── Route details ── */}
       {(pickups.length > 0 || deliveries.length > 0) && (
         <div className="card">
           <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -207,13 +334,64 @@ export default function LiveAuctionPanel({ load, stops = [], userType, transport
         </div>
       )}
 
-      {/* Place bid (transporter only) */}
-      {userType === "transporter" && isOpen && (
+      {/* ── TRANSPORTER: blind-phase banner ── */}
+      {userType === "transporter" && !auctionStarted && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <EyeOff size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Sealed Bidding Phase</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Your bid is sealed and invisible to the shipper until bidding opens.
+              You can update your bid any time before then.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── TRANSPORTER: position card (shown once they have a bid) ── */}
+      {userType === "transporter" && myPosition && (
+        <div className={`card border-2 ${myPosition.bid_position === 1 ? "border-green-400 bg-green-50" : "border-slate-200"}`}>
+          <div className="flex items-center gap-3">
+            <Trophy
+              size={22}
+              className={myPosition.bid_position === 1 ? "text-green-600" : "text-slate-400"}
+            />
+            <div>
+              <p className="font-semibold text-slate-900">
+                Position{" "}
+                <span className={myPosition.bid_position === 1 ? "text-green-700" : "text-slate-700"}>
+                  #{myPosition.bid_position}
+                </span>
+                <span className="text-sm font-normal text-slate-500 ml-1">
+                  of {myPosition.total_bids} {Number(myPosition.total_bids) === 1 ? "bid" : "bids"}
+                </span>
+              </p>
+              <p className="text-sm text-slate-600 mt-0.5">
+                Your bid: <span className="font-semibold">{formatINR(myPosition.amount)}</span>
+              </p>
+            </div>
+            {myPosition.bid_position === 1 && (
+              <span className="ml-auto text-xs font-semibold text-green-700 bg-green-100 rounded-full px-3 py-1">
+                Lowest — leading!
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TRANSPORTER: bid form ── */}
+      {userType === "transporter" && isAuctionOpen && (
         <div className="card">
-          <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <Gavel size={16} /> Place Your Bid
+          <h3 className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+            <Gavel size={16} />
+            {myPosition ? "Update Your Bid" : "Place Your Bid"}
           </h3>
-          <form onSubmit={placeBid} className="space-y-4">
+          {!auctionStarted && (
+            <p className="text-xs text-amber-600 mb-4">
+              Sealed phase — submit your best price. You can revise it until bidding opens.
+            </p>
+          )}
+          <form onSubmit={placeBid} className="space-y-4 mt-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Your Bid Amount (₹) *</label>
@@ -222,79 +400,126 @@ export default function LiveAuctionPanel({ load, stops = [], userType, transport
                   type="number" min="1" step="1"
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
-                  placeholder={`Max: ${formatINR(lowestBid - 100)}`}
+                  placeholder={`Below ${formatINR(load.opening_price)}`}
                   required
                 />
-                <p className="text-xs text-slate-400 mt-1">
-                  Must be at least ₹100 lower than current lowest ({formatINR(lowestBid)})
-                </p>
+                {!auctionStarted ? (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Must be lower than the opening price ({formatINR(load.opening_price)})
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Must be at least ₹100 lower than the current lowest bid
+                  </p>
+                )}
               </div>
               <div>
                 <label className="label">Transit Days</label>
-                <input className="input" type="number" min="1" step="1" value={etaDays} onChange={(e) => setEtaDays(e.target.value)} placeholder="e.g. 2" />
+                <input
+                  className="input"
+                  type="number" min="1" step="1"
+                  value={etaDays}
+                  onChange={(e) => setEtaDays(e.target.value)}
+                  placeholder="e.g. 2"
+                />
               </div>
             </div>
             <div>
               <label className="label">Notes (optional)</label>
-              <input className="input" value={bidNote} onChange={(e) => setBidNote(e.target.value)} placeholder="Vehicle available, door-to-door, etc." />
+              <input
+                className="input"
+                value={bidNote}
+                onChange={(e) => setBidNote(e.target.value)}
+                placeholder="Vehicle available, door-to-door, etc."
+              />
             </div>
             <button type="submit" disabled={submitting} className="btn-primary px-6">
-              {submitting ? "Placing bid…" : "Place Bid"}
+              {submitting ? "Submitting…" : myPosition ? "Update Bid" : "Submit Bid"}
             </button>
           </form>
         </div>
       )}
 
-      {/* Bid list */}
-      <div className="card">
-        <h3 className="font-semibold text-slate-900 mb-4">
-          Live Bids ({bids.length})
-        </h3>
-        {bids.length === 0 ? (
-          <p className="text-sm text-slate-400 py-6 text-center">No bids yet. Be the first!</p>
-        ) : (
-          <div className="space-y-3">
-            {bids.map((bid, idx) => (
-              <div
-                key={bid.id}
-                className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                  idx === 0
-                    ? "border-green-300 bg-green-50"
-                    : "border-surface-border bg-white"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    {idx === 0 && (
-                      <span className="text-xs font-semibold text-green-700 bg-green-100 rounded-full px-2 py-0.5">
-                        Lowest
+      {/* ── SHIPPER: blind-phase info banner ── */}
+      {userType === "shipper" && !auctionStarted && (
+        <div className="card border border-amber-200 bg-amber-50">
+          <div className="flex items-start gap-3">
+            <EyeOff size={20} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-amber-800">Blind Bidding Phase</p>
+              <p className="text-sm text-amber-700 mt-0.5">
+                Transporters are submitting sealed bids. Identities and amounts are hidden until
+                bidding opens.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div className="text-center p-3 rounded-lg bg-white border border-amber-100">
+              <p className="text-xs text-amber-600 mb-1">Sealed Bids Received</p>
+              <p className="text-xl font-bold text-amber-800">
+                {blindBidCount !== null ? blindBidCount : "—"}
+              </p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-white border border-amber-100">
+              <p className="text-xs text-amber-600 mb-1">Bidding Opens In</p>
+              <p className="text-xl font-bold text-amber-800">{timeToStart ?? "—"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SHIPPER: live bid list (after auction started) ── */}
+      {userType === "shipper" && auctionStarted && (
+        <div className="card">
+          <h3 className="font-semibold text-slate-900 mb-4">
+            Live Bids ({bids.length})
+          </h3>
+          {bids.length === 0 ? (
+            <p className="text-sm text-slate-400 py-6 text-center">No bids yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {bids.map((bid, idx) => (
+                <div
+                  key={bid.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                    idx === 0
+                      ? "border-green-300 bg-green-50"
+                      : "border-surface-border bg-white"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {idx === 0 && (
+                        <span className="text-xs font-semibold text-green-700 bg-green-100 rounded-full px-2 py-0.5">
+                          Lowest
+                        </span>
+                      )}
+                      <span className="text-sm font-bold text-slate-900">
+                        {formatINR(bid.amount)}
                       </span>
-                    )}
-                    <span className="text-sm font-bold text-slate-900">
-                      {formatINR(bid.amount)}
-                    </span>
-                    {bid.eta_days && (
-                      <span className="text-xs text-slate-400">· {bid.eta_days}d transit</span>
+                      {bid.eta_days && (
+                        <span className="text-xs text-slate-400">· {bid.eta_days}d transit</span>
+                      )}
+                    </div>
+                    {bid.notes && <p className="text-xs text-slate-500 mt-0.5">{bid.notes}</p>}
+                    {bid.transporter_company?.name && (
+                      <p className="text-xs text-slate-400 mt-0.5">{bid.transporter_company.name}</p>
                     )}
                   </div>
-                  {bid.notes && <p className="text-xs text-slate-500 mt-0.5">{bid.notes}</p>}
-                  {bid.transporter_company?.name && (
-                    <p className="text-xs text-slate-400 mt-0.5">{bid.transporter_company.name}</p>
+                  {load.status === "open" && (
+                    <button
+                      onClick={() => acceptBid(bid.id)}
+                      className="btn-primary text-xs px-3 py-1.5"
+                    >
+                      Accept
+                    </button>
                   )}
                 </div>
-                {userType === "shipper" && load.status === "open" && (
-                  <button
-                    onClick={() => acceptBid(bid.id)}
-                    className="btn-primary text-xs px-3 py-1.5"
-                  >
-                    Accept
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

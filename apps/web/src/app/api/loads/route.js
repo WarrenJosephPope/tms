@@ -29,7 +29,7 @@ export async function POST(request) {
       origin_address, origin_city, origin_state, origin_pincode,
       dest_address, dest_city, dest_state, dest_pincode,
       pickup_date, pickup_window_start, pickup_window_end,
-      opening_price, auction_duration_hours, auto_accept_lowest,
+      opening_price, auction_duration_hours, bid_start_time, auto_accept_lowest,
       notes, special_instructions,
       stops, // Array<{ address, city, state, pincode, lat, lng, stop_type, stop_order }>
     } = body;
@@ -66,6 +66,7 @@ export async function POST(request) {
         pickup_window_end: pickup_window_end || null,
         opening_price: Number(opening_price),
         auction_end_time: auctionEndTime,
+        bid_start_time: bid_start_time ? new Date(bid_start_time).toISOString() : null,
         auto_accept_lowest: Boolean(auto_accept_lowest),
         notes: notes?.trim() || null,
         special_instructions: special_instructions?.trim() || null,

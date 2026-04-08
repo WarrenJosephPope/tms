@@ -113,6 +113,7 @@ export default function PostLoadForm() {
     pickup_window_end: "",
     opening_price: "",
     auction_duration_hours: "24",
+    bid_start_time: "",
     auto_accept_lowest: false,
     notes: "",
     special_instructions: "",
@@ -343,6 +344,19 @@ export default function PostLoadForm() {
                   <option key={h} value={h}>{h} hours</option>
                 ))}
               </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">Bid Start Date &amp; Time</label>
+              <input
+                className={inputCls}
+                type="datetime-local"
+                value={form.bid_start_time}
+                onChange={setField("bid_start_time")}
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Optional. If set, transporters can place <em>sealed bids</em> before this time — the shipper won&apos;t
+                see who bid or the amounts until bidding opens. Leave blank for immediate visibility.
+              </p>
             </div>
           </div>
           <label className="flex items-center gap-3 cursor-pointer">

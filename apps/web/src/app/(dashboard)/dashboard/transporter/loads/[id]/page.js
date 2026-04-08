@@ -31,8 +31,6 @@ export default async function TransporterLoadDetailPage({ params }) {
         load={load}
         stops={stops ?? []}
         userType={profile.user_type}
-        transporterCompanyId={profile.company_id}
-        bidderId={user.id}
       />
     </div>
   );
