@@ -13,16 +13,20 @@ export function formatINR(amount) {
 
 /**
  * Format a duration from now to a future date as a human-readable string.
+ * Shows seconds when under 1 hour (suitable for short auction windows).
  * @param {string|Date} date
  */
 export function timeUntil(date) {
   const diff = new Date(date) - new Date();
   if (diff <= 0) return "Ended";
-  const h = Math.floor(diff / 3_600_000);
-  const m = Math.floor((diff % 3_600_000) / 60_000);
-  if (h > 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const totalSec = Math.floor(diff / 1_000);
+  const h = Math.floor(totalSec / 3_600);
+  const m = Math.floor((totalSec % 3_600) / 60);
+  const s = totalSec % 60;
+  if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
+  if (h > 0)   return `${h}h ${m}m`;
+  if (m > 0)   return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 /**

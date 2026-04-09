@@ -9,13 +9,14 @@ import { useEffect, useRef, useCallback } from "react";
  * with fetchFields for field extraction (Places API New).
  *
  * Props:
- *  value       {string}   - initial address text
- *  onChange    {fn}       - called with { address, city, state, pincode, lat, lng }
- *  placeholder {string}
- *  required    {boolean}
- *  mapsLoaded  {boolean}  - optional fast-path trigger
+ *  value        {string}   - initial address text (hidden input for HTML validation)
+ *  initialValue {string}   - text to pre-fill the visible autocomplete input on mount
+ *  onChange     {fn}       - called with { address, city, state, pincode, lat, lng }
+ *  placeholder  {string}
+ *  required     {boolean}
+ *  mapsLoaded   {boolean}  - optional fast-path trigger
  */
-export default function PlacesAutocomplete({ value, onChange, placeholder, required, mapsLoaded }) {
+export default function PlacesAutocomplete({ value, initialValue, onChange, placeholder, required, mapsLoaded }) {
   const containerRef = useRef(null);
   const elementRef = useRef(null);
   const hiddenRef = useRef(null);
@@ -23,6 +24,9 @@ export default function PlacesAutocomplete({ value, onChange, placeholder, requi
   // Ref so the event listener always calls the latest onChange without stale closure
   const onChangeRef = useRef(onChange);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+  // Ref so we can apply initialValue after element creation without re-init
+  const initialValueRef = useRef(initialValue);
 
   const initElement = useCallback(() => {
     if (!containerRef.current || elementRef.current) return;
@@ -33,6 +37,11 @@ export default function PlacesAutocomplete({ value, onChange, placeholder, requi
     });
 
     if (placeholder) el.placeholder = placeholder;
+
+    // Pre-fill the visible search input with the branch/initial address text
+    if (initialValueRef.current) {
+      el.value = initialValueRef.current;
+    }
 
     async function handleSelect(event) {
       // gmp-select (new): event.placePrediction — use toPlace() for a Place instance

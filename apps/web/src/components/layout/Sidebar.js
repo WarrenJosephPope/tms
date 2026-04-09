@@ -25,6 +25,7 @@ const NAV_SHIPPER = [
   { label: "My Loads", href: "/dashboard/shipper/loads", icon: Package },
   { label: "Post a Load", href: "/dashboard/shipper/loads/new", icon: Gavel },
   { label: "Tracking", href: "/dashboard/shipper/tracking", icon: MapPin },
+  { label: "Branches", href: "/dashboard/shipper/branches", icon: Layers, ownerOnly: true },
   { label: "Team", href: "/dashboard/shipper/team", icon: Users, ownerOnly: true },
   { label: "Analytics", href: "/dashboard/shipper/analytics", icon: BarChart3 },
 ];

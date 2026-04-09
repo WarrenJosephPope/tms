@@ -29,9 +29,14 @@ export async function POST(request) {
       origin_address, origin_city, origin_state, origin_pincode,
       dest_address, dest_city, dest_state, dest_pincode,
       pickup_date, pickup_window_start, pickup_window_end,
-      opening_price, auction_duration_hours, bid_start_time, auto_accept_lowest,
+      opening_price,
+      auction_duration_minutes, // replaces auction_duration_hours
+      sealed_phase_minutes,     // minutes of sealed bidding before open phase (0 = none)
+      extension_trigger_minutes, extension_add_minutes, extension_max_count,
+      auto_accept_lowest,
       notes, special_instructions,
       stops, // Array<{ address, city, state, pincode, lat, lng, stop_type, stop_order }>
+      branch_id,
     } = body;
 
     // Input validation
@@ -40,9 +45,11 @@ export async function POST(request) {
     if (!pickup_date) return NextResponse.json({ error: "Pickup date is required" }, { status: 400 });
     if (!opening_price || Number(opening_price) <= 0) return NextResponse.json({ error: "Opening price must be positive" }, { status: 400 });
 
-    const auctionEndTime = new Date(
-      Date.now() + Number(auction_duration_hours ?? 24) * 3_600_000
-    ).toISOString();
+    const durationMs   = Number(auction_duration_minutes ?? 15) * 60_000;
+    const auctionEndTime = new Date(Date.now() + durationMs).toISOString();
+
+    const sealedMs    = Number(sealed_phase_minutes ?? 0) * 60_000;
+    const bidStartTime = sealedMs > 0 ? new Date(Date.now() + sealedMs).toISOString() : null;
 
     const admin = await createAdminClient();
     const { data: load, error: insertError } = await admin
@@ -66,8 +73,13 @@ export async function POST(request) {
         pickup_window_end: pickup_window_end || null,
         opening_price: Number(opening_price),
         auction_end_time: auctionEndTime,
-        bid_start_time: bid_start_time ? new Date(bid_start_time).toISOString() : null,
+        bid_start_time: bidStartTime,
+        extension_trigger_minutes: Number(extension_trigger_minutes) > 0 ? Number(extension_trigger_minutes) : null,
+        extension_add_minutes:     Number(extension_add_minutes)     > 0 ? Number(extension_add_minutes)     : null,
+        extension_max_count:       Number(extension_max_count)       || 0,
+        extension_count:           0,
         auto_accept_lowest: Boolean(auto_accept_lowest),
+        branch_id: branch_id || null,
         notes: notes?.trim() || null,
         special_instructions: special_instructions?.trim() || null,
         status: "open",

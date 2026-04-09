@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Building2 } from "lucide-react";
 import TypeAllotmentsPanel from "./TypeAllotmentsPanel";
 import CompanyUsersPanel from "./CompanyUsersPanel";
+import BranchesPanel from "@/components/layout/BranchesPanel";
 
 export async function generateMetadata({ params }) {
   return { title: "Company — Admin" };
@@ -81,6 +82,13 @@ export default async function AdminCompanyDetailPage({ params }) {
       <div className="card">
         <CompanyUsersPanel companyId={company.id} userType={company.user_type} />
       </div>
+
+      {/* Branches — only meaningful for shippers */}
+      {company.user_type === "shipper" && (
+        <div className="card">
+          <BranchesPanel apiBase={`/api/admin/companies/${company.id}/branches`} canToggle />
+        </div>
+      )}
 
       {/* Type allotments — only meaningful for shippers */}
       {company.user_type === "shipper" ? (

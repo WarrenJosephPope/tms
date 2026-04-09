@@ -11,7 +11,7 @@ import StopsMap from "./StopsMap";
 const emptyStop = () => ({ address: "", city: "", state: "", pincode: "", lat: null, lng: null });
 
 // ─── StopEditor lives at module level so React never remounts it on re-render ───
-function StopEditor({ stops, onUpdate, onAdd, onRemove, type, label, mapsLoaded }) {
+function StopEditor({ stops, onUpdate, onAdd, onRemove, type, label, mapsLoaded, initialValues }) {
   return (
     <div className="card space-y-4">
       <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide border-b border-surface-border pb-2 mb-4">
@@ -38,8 +38,9 @@ function StopEditor({ stops, onUpdate, onAdd, onRemove, type, label, mapsLoaded 
           <div>
             <label className="label">Address *</label>
             <PlacesAutocomplete
-              key={`${type}-${idx}-ac`}
+              key={`${type}-${idx}-ac-${initialValues?.[idx] ?? ""}`}
               value={stop.address}
+              initialValue={initialValues?.[idx]}
               mapsLoaded={mapsLoaded}
               placeholder={type === "pickup" ? "Plot 12, MIDC, Andheri East" : "Warehouse 5, Whitefield"}
               required={idx === 0}
@@ -93,6 +94,9 @@ export default function PostLoadForm() {
   const [allowedTypes, setAllowedTypes] = useState(null);
   const [typesError, setTypesError] = useState(null);
 
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState("");
+
   useEffect(() => {
     fetch("/api/loads/allowed-types")
       .then((res) => res.json())
@@ -112,12 +116,83 @@ export default function PostLoadForm() {
     pickup_window_start: "",
     pickup_window_end: "",
     opening_price: "",
-    auction_duration_hours: "24",
-    bid_start_time: "",
+    auction_duration_minutes: "15",
+    sealed_phase_minutes: "0",
+    extension_trigger_minutes: "3",
+    extension_add_minutes: "5",
+    extension_max_count: "3",
     auto_accept_lowest: false,
     notes: "",
     special_instructions: "",
   });
+
+  // Fetch branches on mount
+  useEffect(() => {
+    fetch("/api/company/branches")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setBranches(data); })
+      .catch(() => {});
+  }, []);
+
+  // When branch changes: fetch branch auction defaults + seed first pickup address
+  const handleBranchChange = useCallback(async (branchId) => {
+    setSelectedBranch(branchId);
+
+    if (!branchId) return;
+
+    const branch = branches.find((b) => b.id === branchId);
+    if (!branch) return;
+
+    // Pre-seed first pickup stop with branch address (only if it's still empty)
+    setPickupStops((prev) => {
+      const first = prev[0];
+      if (first.address || first.city) return prev; // already has data — don't overwrite
+      const seeded = {
+        address:  branch.address_line1 || "",
+        city:     branch.city         || "",
+        state:    branch.state        || "",
+        pincode:  branch.pincode      || "",
+        lat:      branch.lat,
+        lng:      branch.lng,
+      };
+      return [seeded, ...prev.slice(1)];
+    });
+
+    // Fetch branch auction settings (falls back to company then hardcoded inside API)
+    try {
+      const res = await fetch(`/api/company/auction-settings?branch_id=${branchId}`);
+      const data = await res.json();
+      if (!data.error) {
+        setForm((prev) => ({
+          ...prev,
+          auction_duration_minutes:  String(data.auction_duration_minutes),
+          sealed_phase_minutes:      String(data.sealed_phase_minutes),
+          extension_trigger_minutes: String(data.extension_trigger_minutes),
+          extension_add_minutes:     String(data.extension_add_minutes),
+          extension_max_count:       String(data.extension_max_count),
+        }));
+      }
+    } catch (_) {}
+  }, [branches]);
+
+  // Prefetch company auction defaults and apply to form
+  useEffect(() => {
+    fetch("/api/company/auction-settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) {
+          setForm((prev) => ({
+            ...prev,
+            auction_duration_minutes:  String(data.auction_duration_minutes),
+            sealed_phase_minutes:      String(data.sealed_phase_minutes),
+            extension_trigger_minutes: String(data.extension_trigger_minutes),
+            extension_add_minutes:     String(data.extension_add_minutes),
+            extension_max_count:       String(data.extension_max_count),
+          }));
+        }
+      })
+      .catch(() => {}); // fail silently — form already has sensible defaults
+  }, []);
 
   // Separate pickup / delivery stop lists
   const [pickupStops, setPickupStops] = useState([emptyStop()]);
@@ -170,8 +245,14 @@ export default function PostLoadForm() {
 
     const validPickups = pickupStops.filter((s) => s.address || s.city);
     const validDeliveries = deliveryStops.filter((s) => s.address || s.city);
+    if (!selectedBranch) { toast.error("Please select a branch"); return; }
     if (!validPickups.length) { toast.error("Add at least one pickup stop"); return; }
     if (!validDeliveries.length) { toast.error("Add at least one delivery stop"); return; }
+
+    const auctionMins = Number(form.auction_duration_minutes ?? 15);
+    const sealedMins  = Number(form.sealed_phase_minutes ?? 0);
+    if (auctionMins < 1) { toast.error("Auction duration must be at least 1 minute"); return; }
+    if (sealedMins >= auctionMins) { toast.error("Sealed phase must be shorter than the auction duration"); return; }
 
     startTransition(async () => {
       const res = await fetch("/api/loads", {
@@ -179,6 +260,7 @@ export default function PostLoadForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          branch_id: selectedBranch,
           // First pickup / last delivery used as the canonical origin/dest for legacy fields
           origin_city: validPickups[0].city,
           origin_state: validPickups[0].state,
@@ -218,6 +300,34 @@ export default function PostLoadForm() {
       />
 
       <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
+
+        {/* Branch selector */}
+        <div className="card space-y-4">
+          {section("Branch")}
+          <div>
+            <label className="label">Branch *</label>
+            {branches.length === 0 ? (
+              <div className="input bg-slate-50 text-slate-400">
+                {branches.length === 0 ? "No active branches found. Ask your account owner to add branches." : "Loading…"}
+              </div>
+            ) : (
+              <select
+                className={inputCls}
+                value={selectedBranch}
+                onChange={(e) => handleBranchChange(e.target.value)}
+                required
+              >
+                <option value="" disabled>Select branch…</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}{b.city ? ` – ${b.city}` : ""}</option>
+                ))}
+              </select>
+            )}
+            <p className="text-xs text-slate-400 mt-1">
+              Selecting a branch pre-fills the pickup address and loads branch-level auction settings.
+            </p>
+          </div>
+        </div>
 
         {/* Cargo */}
         <div className="card space-y-4">
@@ -290,6 +400,10 @@ export default function PostLoadForm() {
           type="pickup"
           label="Pickup Stops"
           mapsLoaded={mapsLoaded}
+          initialValues={(() => {
+            const branch = branches.find((b) => b.id === selectedBranch);
+            return branch ? [branch.address_line1 || branch.city || ""] : undefined;
+          })()}
         />
 
         {/* Pickup schedule */}
@@ -331,34 +445,55 @@ export default function PostLoadForm() {
         {/* Auction settings */}
         <div className="card space-y-4">
           {section("Auction Settings")}
+
+          {/* Timing */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Opening Price (₹) *</label>
               <input className={inputCls} type="number" min="1" step="1" value={form.opening_price} onChange={setField("opening_price")} placeholder="85000" required />
-              <p className="text-xs text-slate-400 mt-1">This is your budget ceiling — bids will start here and go lower.</p>
+              <p className="text-xs text-slate-400 mt-1">Budget ceiling — bids start here and go lower.</p>
             </div>
             <div>
-              <label className="label">Auction Duration *</label>
-              <select className={inputCls} value={form.auction_duration_hours} onChange={setField("auction_duration_hours")}>
-                {[6, 12, 24, 48, 72].map((h) => (
-                  <option key={h} value={h}>{h} hours</option>
-                ))}
-              </select>
+              <label className="label">Auction Duration (minutes) *</label>
+              <input className={inputCls} type="number" min="1" step="1" value={form.auction_duration_minutes} onChange={setField("auction_duration_minutes")} placeholder="15" required />
+              <p className="text-xs text-slate-400 mt-1">Total duration of the auction from now.</p>
             </div>
             <div className="sm:col-span-2">
-              <label className="label">Bid Start Date &amp; Time</label>
-              <input
-                className={inputCls}
-                type="datetime-local"
-                value={form.bid_start_time}
-                onChange={setField("bid_start_time")}
-              />
+              <label className="label">Sealed Phase Duration (minutes)</label>
+              <input className={inputCls} type="number" min="0" step="1" value={form.sealed_phase_minutes} onChange={setField("sealed_phase_minutes")} placeholder="0" />
               <p className="text-xs text-slate-400 mt-1">
-                Optional. If set, transporters can place <em>sealed bids</em> before this time — the shipper won&apos;t
-                see who bid or the amounts until bidding opens. Leave blank for immediate visibility.
+                If &gt; 0, bids are sealed for this many minutes before the open phase. The shipper won&apos;t see
+                who bid until bidding opens. Set to 0 to skip the sealed phase.
               </p>
             </div>
           </div>
+
+          {/* Auto-extension */}
+          <div className="border border-surface-border rounded-lg px-4 py-3 space-y-3">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Auto-extension</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="label">Trigger (last X min)</label>
+                <input className={inputCls} type="number" min="0" step="1" value={form.extension_trigger_minutes} onChange={setField("extension_trigger_minutes")} placeholder="3" />
+              </div>
+              <div>
+                <label className="label">Extend by (min)</label>
+                <input className={inputCls} type="number" min="1" step="1" value={form.extension_add_minutes} onChange={setField("extension_add_minutes")} placeholder="5" />
+              </div>
+              <div>
+                <label className="label">Max extensions</label>
+                <input className={inputCls} type="number" min="0" step="1" value={form.extension_max_count} onChange={setField("extension_max_count")} placeholder="3" />
+              </div>
+            </div>
+            <p className="text-xs text-slate-400">
+              If a bid is placed in the last{" "}
+              <strong>{form.extension_trigger_minutes || "X"}</strong> min, the auction extends by{" "}
+              <strong>{form.extension_add_minutes || "Y"}</strong> min — up to{" "}
+              <strong>{form.extension_max_count || "0"}</strong> time{Number(form.extension_max_count) !== 1 ? "s" : ""}.
+              Set max extensions to 0 to disable.
+            </p>
+          </div>
+
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"

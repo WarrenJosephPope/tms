@@ -22,15 +22,26 @@ import toast from "react-hot-toast";
  */
 export default function LiveAuctionPanel({ load, stops = [], userType }) {
   // ── Derived constants ──────────────────────────────────────────────────────
-  const bidStartTime  = load.bid_start_time ? new Date(load.bid_start_time) : null;
-  const auctionEndTime = new Date(load.auction_end_time);
-  const isAuctionOpen  = load.status === "open" && auctionEndTime > new Date();
+  const bidStartTime = load.bid_start_time ? new Date(load.bid_start_time) : null;
 
   // ── State ──────────────────────────────────────────────────────────────────
+  // auctionEndTime is mutable: auto-extension updates it via realtime
+  const [auctionEndTime, setAuctionEndTime] = useState(new Date(load.auction_end_time));
+  const [extensionCount, setExtensionCount] = useState(load.extension_count ?? 0);
+  // lastExtended: how many minutes the most recent extension added (null = none yet)
+  const [lastExtended, setLastExtended] = useState(null);
+  const extensionMaxCount = load.extension_max_count ?? 0;
+
+  // isAuctionOpen is intentionally NOT used as a subscription guard — doing so
+  // creates a race condition where the 1s timer flips it to false in the last
+  // second, tears down the subscription, and the extension event is lost.
+  // Instead we derive it fresh every render and only use it to control UI.
+  const isAuctionOpen = load.status === "open" && auctionEndTime > new Date();
+
   const [auctionStarted, setAuctionStarted] = useState(
     !bidStartTime || new Date() >= bidStartTime
   );
-  const [timeLeft,   setTimeLeft]   = useState(timeUntil(load.auction_end_time));
+  const [timeLeft,    setTimeLeft]    = useState(timeUntil(auctionEndTime.toISOString()));
   const [timeToStart, setTimeToStart] = useState(
     bidStartTime ? timeUntil(bidStartTime.toISOString()) : null
   );
@@ -106,38 +117,56 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Realtime subscription ──────────────────────────────────────────────────
-  // We use bid events only as a trigger to re-fetch server-side data.
-  // We never read sensitive details from event payloads to prevent leaking
-  // other transporters' amounts to the subscribing client.
+  // ── Realtime subscription (bids + loads) ──────────────────────────────────
+  // Gated on load.status only — NOT on auctionEndTime/isAuctionOpen, so it stays
+  // alive through the final seconds and correctly receives extension events.
   useEffect(() => {
-    if (!isAuctionOpen) return;
+    if (load.status !== "open") return;
 
     const channel = supabase
-      .channel(`bids-panel:${load.id}`)
+      .channel(`auction-panel:${load.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "bids", filter: `load_id=eq.${load.id}` },
         () => {
-          if (userType === "transporter") {
-            fetchPosition();
-          } else if (auctionStarted) {
-            fetchBids();
-          } else {
-            fetchBlindCount();
-          }
+          if (userType === "transporter") fetchPosition();
+          else if (auctionStarted) fetchBids();
+          else fetchBlindCount();
         }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "bids", filter: `load_id=eq.${load.id}` },
         () => {
-          if (userType === "transporter") {
-            fetchPosition();
-          } else if (auctionStarted) {
-            fetchBids();
-          } else {
-            fetchBlindCount();
+          if (userType === "transporter") fetchPosition();
+          else if (auctionStarted) fetchBids();
+          else fetchBlindCount();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "loads", filter: `id=eq.${load.id}` },
+        (payload) => {
+          const newEnd = payload.new?.auction_end_time;
+          const newCount = payload.new?.extension_count;
+
+          if (newEnd) {
+            const next = new Date(newEnd);
+            setAuctionEndTime((prev) => {
+              // Calculate added minutes BEFORE updating state so we can show the banner
+              if (next.getTime() > prev.getTime()) {
+                const addedMin = Math.round((next.getTime() - prev.getTime()) / 60_000);
+                // Schedule side effects outside the updater
+                setTimeout(() => {
+                  setLastExtended(addedMin);
+                  toast.success(`⏱️ Auction extended by ${addedMin} min!`);
+                }, 0);
+              }
+              return next;
+            });
+          }
+          if (newCount !== undefined) {
+            setExtensionCount(newCount);
           }
         }
       )
@@ -145,28 +174,35 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
 
     return () => supabase.removeChannel(channel);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load.id, isAuctionOpen, auctionStarted, userType]);
+  }, [load.id, load.status, auctionStarted, userType]);
 
-  // ── Countdown & phase-transition timer ────────────────────────────────────
+  // ── Immediately sync timeLeft when auctionEndTime changes (extension) ──────
+  // The 1s interval would take up to 1s to reflect the new end time; this effect
+  // fires synchronously on the same render so all clients see the updated time
+  // the moment they receive the realtime event.
+  useEffect(() => {
+    setTimeLeft(timeUntil(auctionEndTime.toISOString()));
+  }, [auctionEndTime]);
+
+  // ── Countdown & phase-transition timer (1 s for sub-minute precision) ──────
   useEffect(() => {
     const interval = setInterval(() => {
-      setTimeLeft(timeUntil(load.auction_end_time));
+      setTimeLeft(timeUntil(auctionEndTime.toISOString()));
       if (bidStartTime) {
         const remaining = timeUntil(bidStartTime.toISOString());
         setTimeToStart(remaining);
         if (!auctionStarted && new Date() >= bidStartTime) {
           setAuctionStarted(true);
-          // Transition: load fresh data for both user types
           if (userType === "shipper") fetchBids();
           else fetchPosition();
         }
       }
-    }, 10_000);
+    }, 1_000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load.auction_end_time, bidStartTime, auctionStarted, userType]);
+  }, [auctionEndTime, bidStartTime, auctionStarted, userType]);
 
-  // ── Position polling (ensures transporter rank stays current every 10 s) ───
+  // ── Position polling (10 s — rank changes don't need second precision) ──────
   useEffect(() => {
     if (userType !== "transporter") return;
     const interval = setInterval(fetchPosition, 10_000);
@@ -263,7 +299,7 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
             </div>
           )}
 
-          {/* Time left */}
+          {/* Time left + extension badge */}
           <div className="text-center p-3 rounded-lg bg-brand-50">
             <p className="text-xs text-slate-500 mb-1 flex items-center justify-center gap-1">
               <Clock size={12} /> Time Left
@@ -271,9 +307,37 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
             <p className={`text-base font-bold ${isAuctionOpen ? "text-brand-700" : "text-red-600"}`}>
               {timeLeft}
             </p>
+            {extensionMaxCount > 0 && (
+              <p className="text-xs mt-1 text-slate-500">
+                &#9889; {extensionCount}/{extensionMaxCount} ext.
+              </p>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ── Extension banner (shown to all clients when an extension fires) ── */}
+      {lastExtended !== null && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-3">
+          <Clock size={18} className="text-blue-500 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-blue-800">
+              Auction extended by {lastExtended} min
+            </p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              A bid was placed in the final window — extra time added.
+              {extensionMaxCount > 0 && ` (${extensionCount}/${extensionMaxCount} extensions used)`}
+            </p>
+          </div>
+          <button
+            onClick={() => setLastExtended(null)}
+            className="text-blue-400 hover:text-blue-600 text-lg leading-none"
+            aria-label="Dismiss"
+          >
+            &#x2715;
+          </button>
+        </div>
+      )}
 
       {/* ── Route details ── */}
       {(pickups.length > 0 || deliveries.length > 0) && (
