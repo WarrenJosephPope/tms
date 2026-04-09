@@ -58,15 +58,42 @@ export async function GET(request, { params }) {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-    const { data, error } = await supabase
+    const admin = await createAdminClient();
+    const { data, error } = await admin
       .from("bids")
-      .select("id, amount, eta_days, notes, status, created_at, transporter_company:companies(name)")
+      .select("id, amount, eta_days, notes, status, created_at, updated_at, transporter_company_id")
       .eq("load_id", loadId)
       .eq("status", "active")
       .order("amount", { ascending: true });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
+
+    // Keep only the best (lowest) bid per transporter company — earlier bids
+    // from the same company are retained for reporting but excluded from the live view.
+    const seen = new Set();
+    const latest = (data ?? []).filter((bid) => {
+      if (seen.has(bid.transporter_company_id)) return false;
+      seen.add(bid.transporter_company_id);
+      return true;
+    });
+
+    // Batch-fetch company names for all unique transporter company IDs
+    const companyIds = latest.map((b) => b.transporter_company_id).filter(Boolean);
+    let companyNames = {};
+    if (companyIds.length > 0) {
+      const { data: companies } = await admin
+        .from("companies")
+        .select("id, name")
+        .in("id", companyIds);
+      for (const c of companies ?? []) companyNames[c.id] = c.name;
+    }
+
+    const result = latest.map((b) => ({
+      ...b,
+      transporter_company: { name: companyNames[b.transporter_company_id] ?? null },
+    }));
+
+    return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -1,4 +1,13 @@
 /**
+ * Format a load number as a zero-padded reference string, e.g. #0000042.
+ * @param {number|string|null} n
+ */
+export function formatLoadNumber(n) {
+  if (n === null || n === undefined) return "—";
+  return `#${String(Number(n)).padStart(7, "0")}`;
+}
+
+/**
  * Format a number as Indian Rupees.
  * @param {number|string} amount
  */

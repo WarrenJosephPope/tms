@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { formatINR, timeUntil } from "@/lib/format";
+import { formatINR, timeUntil, formatLoadNumber } from "@/lib/format";
 import TransporterLoadsFilters from "./TransporterLoadsFilters";
 import Pagination from "@/components/ui/Pagination";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
@@ -39,7 +39,7 @@ export default async function TransporterLoadsPage({ searchParams }) {
   const companyId = profile?.company_id;
 
   const selectCols = `
-    id, origin_city, dest_city, commodity, opening_price,
+    id, load_number, origin_city, dest_city, commodity, opening_price,
     auction_end_time, vehicle_type_req, weight_tonnes, pickup_date, status,
     shipper_company:companies(name),
     load_stops(stop_type, city, state, stop_order)
@@ -139,6 +139,7 @@ export default async function TransporterLoadsPage({ searchParams }) {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0 mr-3">
+                    <p className="text-xs font-mono text-slate-400 mb-0.5">{formatLoadNumber(load.load_number)}</p>
                     <h3 className="font-semibold text-slate-900">{load.origin_city} → {load.dest_city}</h3>
                     <p className="text-xs text-slate-400 mt-0.5">{load.shipper_company?.name}</p>
                   </div>
