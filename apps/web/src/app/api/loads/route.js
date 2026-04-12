@@ -31,7 +31,7 @@ export async function POST(request) {
       pickup_date, pickup_window_start, pickup_window_end,
       opening_price,
       auction_duration_minutes, // replaces auction_duration_hours
-      sealed_phase_minutes,     // minutes of sealed bidding before open phase (0 = none)
+      bid_start_time,           // explicit datetime when open phase begins (null = no blind phase)
       extension_trigger_minutes, extension_add_minutes, extension_max_count,
       auto_accept_lowest,
       notes, special_instructions,
@@ -48,8 +48,7 @@ export async function POST(request) {
     const durationMs   = Number(auction_duration_minutes ?? 15) * 60_000;
     const auctionEndTime = new Date(Date.now() + durationMs).toISOString();
 
-    const sealedMs    = Number(sealed_phase_minutes ?? 0) * 60_000;
-    const bidStartTime = sealedMs > 0 ? new Date(Date.now() + sealedMs).toISOString() : null;
+    const bidStartTime = bid_start_time ? new Date(bid_start_time).toISOString() : null;
 
     const admin = await createAdminClient();
     const { data: load, error: insertError } = await admin

@@ -123,7 +123,7 @@ export default function PostLoadForm() {
     pickup_window_end: "",
     opening_price: "",
     auction_duration_minutes: "15",
-    sealed_phase_minutes: "0",
+    bid_start_time: "",
     extension_trigger_minutes: "3",
     extension_add_minutes: "5",
     extension_max_count: "3",
@@ -172,7 +172,6 @@ export default function PostLoadForm() {
         setForm((prev) => ({
           ...prev,
           auction_duration_minutes:  String(data.auction_duration_minutes),
-          sealed_phase_minutes:      String(data.sealed_phase_minutes),
           extension_trigger_minutes: String(data.extension_trigger_minutes),
           extension_add_minutes:     String(data.extension_add_minutes),
           extension_max_count:       String(data.extension_max_count),
@@ -190,7 +189,6 @@ export default function PostLoadForm() {
           setForm((prev) => ({
             ...prev,
             auction_duration_minutes:  String(data.auction_duration_minutes),
-            sealed_phase_minutes:      String(data.sealed_phase_minutes),
             extension_trigger_minutes: String(data.extension_trigger_minutes),
             extension_add_minutes:     String(data.extension_add_minutes),
             extension_max_count:       String(data.extension_max_count),
@@ -256,9 +254,12 @@ export default function PostLoadForm() {
     if (!validDeliveries.length) { toast.error("Add at least one delivery stop"); return; }
 
     const auctionMins = Number(form.auction_duration_minutes ?? 15);
-    const sealedMins  = Number(form.sealed_phase_minutes ?? 0);
     if (auctionMins < 1) { toast.error("Auction duration must be at least 1 minute"); return; }
-    if (sealedMins >= auctionMins) { toast.error("Sealed phase must be shorter than the auction duration"); return; }
+    if (form.bid_start_time) {
+      const bidStart = new Date(form.bid_start_time);
+      if (isNaN(bidStart.getTime())) { toast.error("Invalid bid start time"); return; }
+      if (bidStart <= new Date()) { toast.error("Bid start time must be in the future"); return; }
+    }
 
     startTransition(async () => {
       const res = await fetch("/api/loads", {
@@ -458,11 +459,16 @@ export default function PostLoadForm() {
               <p className="text-xs text-slate-400 mt-1">Total duration of the auction from now.</p>
             </div>
             <div className="sm:col-span-2">
-              <label className="label">Sealed Phase Duration (minutes)</label>
-              <input className={inputCls} type="number" min="0" step="1" value={form.sealed_phase_minutes} onChange={setField("sealed_phase_minutes")} placeholder="0" />
+              <label className="label">Bid Start Time (Open Phase)</label>
+              <input
+                className={inputCls}
+                type="datetime-local"
+                value={form.bid_start_time}
+                onChange={setField("bid_start_time")}
+              />
               <p className="text-xs text-slate-400 mt-1">
-                If &gt; 0, bids are sealed for this many minutes before the open phase. The shipper won&apos;t see
-                who bid until bidding opens. Set to 0 to skip the sealed phase.
+                The time when open bidding begins. Leave blank to start open bidding immediately.
+                The period from now until this time is the sealed (blind) phase — bids are hidden from everyone.
               </p>
             </div>
           </div>
