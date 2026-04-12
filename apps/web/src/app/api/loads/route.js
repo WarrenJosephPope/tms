@@ -46,9 +46,11 @@ export async function POST(request) {
     if (!opening_price || Number(opening_price) <= 0) return NextResponse.json({ error: "Opening price must be positive" }, { status: 400 });
 
     const durationMs   = Number(auction_duration_minutes ?? 15) * 60_000;
-    const auctionEndTime = new Date(Date.now() + durationMs).toISOString();
-
     const bidStartTime = bid_start_time ? new Date(bid_start_time).toISOString() : null;
+    // If a blind phase is set, the open-bidding window starts at bid_start_time,
+    // so the auction must end at bid_start_time + duration (not now + duration).
+    const auctionBase    = bidStartTime ? new Date(bidStartTime) : new Date();
+    const auctionEndTime = new Date(auctionBase.getTime() + durationMs).toISOString();
 
     const admin = await createAdminClient();
     const { data: load, error: insertError } = await admin
