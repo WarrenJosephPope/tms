@@ -16,10 +16,19 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const supabase = await createAdminClient();
+    // Validate the caller's JWT from the Authorization header.
+    // The client sends "Authorization: Bearer <access_token>" after verifyOtp.
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    const jwt = authHeader.slice(7);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Use admin client to validate the JWT against GoTrue
+    const supabase = await createAdminClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
     if (userError || !user) {
+      console.error("Register – token validation failed:", userError?.message);
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 

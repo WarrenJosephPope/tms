@@ -58,12 +58,16 @@ export default function RegisterTypePage() {
   async function verifyOtp(e) {
     e.preventDefault();
     startTransition(async () => {
-      const { error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.verifyOtp({
         phone: formatted,
         token: otp,
         type: "sms",
       });
       if (error) { toast.error(error.message); return; }
+      if (!data.session) {
+        toast.error("Phone verification succeeded but no session was created. Please try again.");
+        return;
+      }
       setStep("company");
     });
   }
@@ -71,9 +75,20 @@ export default function RegisterTypePage() {
   async function submitCompany(e) {
     e.preventDefault();
     startTransition(async () => {
+      // Read the session that was established by verifyOtp
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Session expired. Please verify your phone again.");
+        setStep("otp");
+        return;
+      }
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           user_type: type,
           full_name: form.full_name,
