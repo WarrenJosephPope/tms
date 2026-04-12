@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
+import GoogleMapsScript from "@/components/layout/GoogleMapsScript";
 
 export default async function DashboardLayout({ children }) {
   const supabase = await createClient();
@@ -27,8 +28,11 @@ export default async function DashboardLayout({ children }) {
   }
 
   return (
-    <DashboardShell profile={profile}>
-      {children}
-    </DashboardShell>
+    <>
+      <GoogleMapsScript />
+      <DashboardShell profile={profile}>
+        {children}
+      </DashboardShell>
+    </>
   );
 }

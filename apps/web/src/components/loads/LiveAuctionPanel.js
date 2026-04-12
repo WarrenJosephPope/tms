@@ -486,7 +486,7 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
                   #{myPosition.bid_position}
                 </span>
                 <span className="text-sm font-normal text-slate-500 ml-1">
-                  of {myPosition.total_bids} {Number(myPosition.total_bids) === 1 ? "bid" : "bids"}
+                  of {myPosition.total_bids} {Number(myPosition.total_bids) === 1 ? "transporter" : "transporters"}
                 </span>
               </p>
               <p className="text-sm text-slate-600 mt-0.5">

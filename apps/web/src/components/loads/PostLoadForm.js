@@ -2,7 +2,6 @@
 
 import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Script from "next/script";
 import toast from "react-hot-toast";
 import PlacesAutocomplete from "./PlacesAutocomplete";
 import StopsMap from "./StopsMap";
@@ -90,6 +89,13 @@ export default function PostLoadForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mapsLoaded, setMapsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (window.google?.maps) { setMapsLoaded(true); return; }
+    const handler = () => setMapsLoaded(true);
+    window.addEventListener("google-maps-loaded", handler);
+    return () => window.removeEventListener("google-maps-loaded", handler);
+  }, []);
 
   const [allowedTypes, setAllowedTypes] = useState(null);
   const [typesError, setTypesError] = useState(null);
@@ -292,13 +298,6 @@ export default function PostLoadForm() {
 
   return (
     <>
-      {/* Load Google Maps JS API — v=beta required for PlaceAutocompleteElement */}
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places,marker,directions&v=beta`}
-        onLoad={() => setMapsLoaded(true)}
-        strategy="lazyOnload"
-      />
-
       <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
 
         {/* Branch selector */}
