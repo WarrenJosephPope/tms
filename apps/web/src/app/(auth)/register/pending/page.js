@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClockIcon, CheckCircleIcon, XCircleIcon } from "lucide-react";
 
-export const metadata = { title: "Registration Pending — eParivahan" };
+export const metadata = { title: "Registration Pending — Tracking Management System" };
 
 const STATUS_CONFIG = {
   pending: {
@@ -64,7 +64,7 @@ export default async function RegisterPendingPage() {
     <div className="min-h-screen flex items-center justify-center bg-surface-muted px-4 py-12">
       <div className="card w-full max-w-md text-center">
         {/* Brand */}
-        <h1 className="text-xl font-bold text-brand-600 mb-6">eParivahan</h1>
+        <h1 className="text-xl font-bold text-brand-600 mb-6">Tracking Management System</h1>
 
         {/* Status banner */}
         <div className={`rounded-xl border p-6 mb-6 ${config.bgClass}`}>
@@ -113,8 +113,8 @@ export default async function RegisterPendingPage() {
         {regRequest.status === "rejected" && (
           <p className="text-sm text-slate-500">
             Please contact{" "}
-            <a href="mailto:support@eparivahan.in" className="text-brand-600 hover:underline">
-              support@eparivahan.in
+            <a href="mailto:support@tracking_management_system.in" className="text-brand-600 hover:underline">
+              support@tracking_management_system.in
             </a>{" "}
             for further assistance.
           </p>

@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — Row Level Security Policies
+-- Tracking Management System — Row Level Security Policies
 -- Migration: 0002_rls_policies.sql
 -- ============================================================
 

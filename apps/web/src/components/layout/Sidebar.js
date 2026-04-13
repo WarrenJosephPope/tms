@@ -90,7 +90,7 @@ export default function Sidebar({ profile, isOpen, onClose }) {
       <div className="h-16 flex items-center justify-between px-5 border-b border-surface-border">
         <Image
           src="/logo.png"
-          alt="eParivahan"
+          alt="Tracking Management System"
           width={140}
           height={36}
           className="object-contain"

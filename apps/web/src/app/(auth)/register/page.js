@@ -4,7 +4,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-muted px-4">
       <div className="card w-full max-w-md text-center">
-        <h1 className="text-2xl font-bold text-brand-600 mb-2">Join eParivahan</h1>
+        <h1 className="text-2xl font-bold text-brand-600 mb-2">Join Tracking Management System</h1>
         <p className="text-sm text-slate-500 mb-8">Choose your account type to get started</p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

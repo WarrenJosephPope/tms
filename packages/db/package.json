@@ -1,5 +1,5 @@
 {
-  "name": "@eparivahan/db",
+  "name": "@tracking_management_system/db",
   "version": "0.1.0",
   "private": true,
   "main": "src/index.js",

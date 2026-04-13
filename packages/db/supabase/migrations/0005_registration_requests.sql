@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — Registration Requests
+-- Tracking Management System — Registration Requests
 -- Migration: 0005_registration_requests.sql
 --
 -- Replaces the direct company/user_profile creation during

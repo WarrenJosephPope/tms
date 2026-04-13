@@ -1,5 +1,5 @@
 {
-  "name": "@eparivahan/tailwind-config",
+  "name": "@tracking_management_system/tailwind-config",
   "version": "0.1.0",
   "private": true,
   "main": "tailwind.config.js",

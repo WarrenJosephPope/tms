@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — Initial Schema
+-- Tracking Management System — Initial Schema
 -- Migration: 0001_initial_schema.sql
 -- ============================================================
 

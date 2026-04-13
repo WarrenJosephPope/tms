@@ -1,5 +1,5 @@
 {
-  "name": "@eparivahan/eslint-config",
+  "name": "@tracking_management_system/eslint-config",
   "version": "0.1.0",
   "private": true,
   "main": "index.js",

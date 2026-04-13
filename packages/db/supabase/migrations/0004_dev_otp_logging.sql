@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — Dev OTP Logging
+-- Tracking Management System — Dev OTP Logging
 -- Migration: 0004_dev_otp_logging.sql
 --
 -- Stores OTPs in a table so they can be read during development

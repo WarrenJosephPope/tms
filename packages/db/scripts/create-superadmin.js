@@ -6,13 +6,13 @@
  *
  * Usage:
  *   node scripts/create-superadmin.js \
- *     --email admin@eparivahan.in \
+ *     --email admin@tracking_management_system.in \
  *     --password "SecurePass123!" \
  *     --name "Admin User" \
  *     --phone "+91XXXXXXXXXX"
  *
  * Optional flags:
- *   --company-name  "eParivahan Platform"   (default shown)
+ *   --company-name  "Tracking Management System"   (default shown)
  *   --role          super_admin             (default; or support_agent / finance_manager)
  */
 
@@ -46,13 +46,13 @@ const email       = args["email"];
 const password    = args["password"];
 const fullName    = args["name"];
 const phone       = args["phone"];
-const companyName = args["company-name"] || "eParivahan Platform";
+const companyName = args["company-name"] || "Tracking Management System";
 const adminRole   = args["role"]         || "super_admin";
 
 if (!email || !password || !fullName || !phone) {
   console.error(
     "Usage: node scripts/create-superadmin.js \\\n" +
-    '  --email admin@eparivahan.com \\\n' +
+    '  --email admin@tracking_management_system.com \\\n' +
     '  --password "SecurePass123!" \\\n' +
     '  --name "Admin User" \\\n' +
     '  --phone "+919876543210"'

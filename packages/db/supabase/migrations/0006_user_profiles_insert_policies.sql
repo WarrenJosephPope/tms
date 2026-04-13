@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — user_profiles INSERT policies
+-- Tracking Management System — user_profiles INSERT policies
 -- Migration: 0006_user_profiles_insert_policies.sql
 -- ============================================================
 

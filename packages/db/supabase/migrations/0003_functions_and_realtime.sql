@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — Supabase Edge Function triggers + Realtime config
+-- Tracking Management System — Supabase Edge Function triggers + Realtime config
 -- Migration: 0003_functions_and_realtime.sql
 --
 -- Wrapped in a single DO block so pgx (used by supabase db push)

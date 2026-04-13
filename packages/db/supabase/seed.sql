@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — Development Seed Data
+-- Tracking Management System — Development Seed Data
 -- seed.sql (run after migration for local development)
 -- ============================================================
 
@@ -16,7 +16,7 @@ VALUES
   ('22000000-0000-0000-0000-000000000001', 'Rajdhani Carriers Pvt Ltd',  'transporter', '06AABCR4321C1Z9', '+919876541001', 'ops@rajdhanicarriers.in',   'Delhi',     'Delhi',       '110001', 'approved', TRUE),
   ('22000000-0000-0000-0000-000000000002', 'Krishna Transport Co',       'transporter', '27AABCK8765D1Z3', '+919876541002', 'info@krishnatransport.in',  'Pune',      'Maharashtra', '411001', 'approved', TRUE),
   -- Admin
-  ('33000000-0000-0000-0000-000000000001', 'eParivahan Platform',        'admin',       NULL,              '+919876542001', 'admin@eparivahan.in',        'Mumbai',    'Maharashtra', '400001', 'approved', TRUE);
+  ('33000000-0000-0000-0000-000000000001', 'Tracking Management System',        'admin',       NULL,              '+919876542001', 'admin@tracking_management_system.in',        'Mumbai',    'Maharashtra', '400001', 'approved', TRUE);
 
 -- ============================================================
 -- VEHICLES

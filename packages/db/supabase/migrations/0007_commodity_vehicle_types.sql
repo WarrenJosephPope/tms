@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — Commodity Types & Vehicle Type Refs
+-- Tracking Management System — Commodity Types & Vehicle Type Refs
 -- Migration: 0007_commodity_vehicle_types.sql
 --
 -- Replaces hard-coded enums/arrays in the UI with DB-managed

@@ -1,5 +1,5 @@
 {
-  "name": "@eparivahan/web",
+  "name": "@tracking_management_system/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@eparivahan/db": "*",
+    "@tracking_management_system/db": "*",
     "@supabase/supabase-js": "^2.47.0",
     "@supabase/ssr": "^0.5.2",
     "next": "^15.5.14",
@@ -23,8 +23,8 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "@eparivahan/eslint-config": "*",
-    "@eparivahan/tailwind-config": "*",
+    "@tracking_management_system/eslint-config": "*",
+    "@tracking_management_system/tailwind-config": "*",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",

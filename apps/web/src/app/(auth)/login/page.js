@@ -60,7 +60,7 @@ function LoginForm() {
       <div className="card w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-3">
-            <Image src="/logo.png" alt="eParivahan" width={180} height={45} className="object-contain" priority />
+            <Image src="/logo.png" alt="Tracking Management System" width={180} height={45} className="object-contain" priority />
           </div>
           <p className="text-sm text-slate-500">Sign in with your mobile number</p>
         </div>

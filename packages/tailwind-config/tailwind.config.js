@@ -18,7 +18,7 @@ module.exports = {
           500: "#1e4dd0",  // interactive navy-blue
           600: "#1a3dab",
           700: "#1a2d85",
-          800: "#1a2464",  // eParivahan deep navy
+          800: "#1a2464",  // Tracking Management System deep navy
           900: "#111848",
           950: "#090f2f",
         },
@@ -31,7 +31,7 @@ module.exports = {
           400: "#ff5659",
           500: "#ff1e22",
           600: "#ee0a0e",
-          700: "#cc2229",  // eParivahan red
+          700: "#cc2229",  // Tracking Management System red
           800: "#a11b1f",
           900: "#851c1f",
           950: "#490b0d",

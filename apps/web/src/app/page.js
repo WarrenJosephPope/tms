@@ -16,7 +16,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-white">
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-surface-border max-w-7xl mx-auto">
-        <Image src="/logo.png" alt="eParivahan" width={160} height={40} className="object-contain" priority />
+        <Image src="/logo.png" alt="Tracking Management System" width={160} height={40} className="object-contain" priority />
         <div className="flex items-center gap-3">
           <Link href="/login" className="btn-secondary text-sm">Log in</Link>
           <Link href="/register" className="btn-primary text-sm">Get started</Link>
@@ -32,7 +32,7 @@ export default async function HomePage() {
           Post loads. Get bids.<br />Track in real time.
         </h1>
         <p className="text-xl text-slate-500 max-w-2xl mx-auto mb-10">
-          eParivahan connects shippers with verified transporters through a live
+          Tracking Management System connects shippers with verified transporters through a live
           reverse auction and gives you GPS + SIM-based fleet visibility — all in one platform.
         </p>
         <div className="flex items-center justify-center gap-4 flex-wrap">

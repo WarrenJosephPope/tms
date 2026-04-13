@@ -1,5 +1,5 @@
 /**
- * @eparivahan/db
+ * @tracking_management_system/db
  * Exports pre-configured Supabase client helpers shared across apps.
  */
 

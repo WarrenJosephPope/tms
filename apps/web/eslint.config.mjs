@@ -1,7 +1,7 @@
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";
-import sharedConfig from "@eparivahan/eslint-config";
+import sharedConfig from "@tracking_management_system/eslint-config";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

@@ -1,5 +1,5 @@
 -- ============================================================
--- eParivahan — Load Stops (multiple pickup / delivery points)
+-- Tracking Management System — Load Stops (multiple pickup / delivery points)
 -- Migration: 0008_load_stops.sql
 -- ============================================================
 
