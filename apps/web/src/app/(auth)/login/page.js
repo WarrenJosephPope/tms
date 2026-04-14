@@ -50,7 +50,7 @@ function LoginForm() {
         toast.error(error.message);
         return;
       }
-      await supabase.rpc("clear_otp_logs", { p_phone: formatted }).catch(() => {});
+      await Promise.resolve(supabase.rpc("clear_otp_logs", { p_phone: formatted.replace(/^\+/, "") })).catch(() => {});
       router.push(next);
       router.refresh();
     });
