@@ -25,6 +25,7 @@ export default function ShipperDashboard() {
     openCount: 0,
     activeTripsCount: 0,
     activeTrips: [],
+    userName: "",
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,12 +36,13 @@ export default function ShipperDashboard() {
 
     const { data: profile } = await supabase
       .from("user_profiles")
-      .select("company_id")
+      .select("company_id, full_name")
       .eq("id", user.id)
       .single();
 
     if (!profile) { setLoading(false); return; }
     const companyId = profile.company_id;
+    const userName = profile.full_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email;
 
     const [loadsRes, openCountRes, activeTripsRes] = await Promise.all([
       supabase
@@ -66,6 +68,7 @@ export default function ShipperDashboard() {
       openCount: openCountRes.count ?? 0,
       activeTripsCount: activeTripsRes.data?.length ?? 0,
       activeTrips: activeTripsRes.data ?? [],
+      userName,
     });
     setLoading(false);
   }
@@ -91,7 +94,7 @@ export default function ShipperDashboard() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Shipper</Text>
+        <Text style={styles.headerTitle}>{state.userName || "Shipper"}</Text>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign out</Text>
         </TouchableOpacity>

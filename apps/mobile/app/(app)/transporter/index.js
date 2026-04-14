@@ -24,6 +24,7 @@ export default function TransporterDashboard() {
     wonBidsCount: 0,
     latestLoads: [],
     recentBids: [],
+    userName: "",
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,12 +35,13 @@ export default function TransporterDashboard() {
 
     const { data: profile } = await supabase
       .from("user_profiles")
-      .select("company_id")
+      .select("company_id, full_name, first_name, last_name, name")
       .eq("id", user.id)
       .single();
 
     if (!profile) { setLoading(false); return; }
     const companyId = profile.company_id;
+    const userName = profile.full_name ?? profile.name ?? (profile.first_name ? `${profile.first_name} ${profile.last_name ?? ""}`.trim() : null) ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email;
 
     const [openLoadsRes, myBidsRes, activeTripsRes] = await Promise.all([
       supabase
@@ -71,6 +73,7 @@ export default function TransporterDashboard() {
       wonBidsCount: bids.filter((b) => b.status === "won").length,
       latestLoads: openLoadsRes.data ?? [],
       recentBids: bids.slice(0, 5),
+      userName,
     });
     setLoading(false);
   }
@@ -96,7 +99,7 @@ export default function TransporterDashboard() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Transporter</Text>
+        <Text style={styles.headerTitle}>{state.userName || "Transporter"}</Text>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign out</Text>
         </TouchableOpacity>
