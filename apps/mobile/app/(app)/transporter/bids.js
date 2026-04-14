@@ -111,6 +111,7 @@ export default function TransporterBidsScreen() {
       {/* Status filter chips */}
       <FlatList
         horizontal
+        style={{ flexGrow: 0 }}
         data={STATUS_FILTERS}
         keyExtractor={(f) => f.value || "all"}
         showsHorizontalScrollIndicator={false}
@@ -156,10 +157,10 @@ const styles = StyleSheet.create({
   header:         { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
   headerTitle:    { fontSize: 18, fontWeight: "800", color: "#0f172a" },
   back:           { fontSize: 14, color: "#1e4dd0", fontWeight: "600", width: 60 },
-  filterRow:      { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  chip:           { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "#f1f5f9", borderWidth: 1, borderColor: "#e2e8f0" },
+  filterRow:      { paddingHorizontal: 16, paddingVertical: 6, gap: 6 },
+  chip:           { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: "#f1f5f9", borderWidth: 1, borderColor: "#e2e8f0" },
   chipActive:     { backgroundColor: "#1e4dd0", borderColor: "#1e4dd0" },
-  chipText:       { fontSize: 12, fontWeight: "600", color: "#64748b" },
+  chipText:       { fontSize: 11, fontWeight: "600", color: "#64748b" },
   chipTextActive: { color: "#fff" },
   list:           { padding: 16, gap: 10, paddingBottom: 32 },
   center:         { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 60 },

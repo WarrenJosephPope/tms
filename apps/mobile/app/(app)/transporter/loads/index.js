@@ -10,17 +10,6 @@ import { formatINR, timeUntil } from "../../../../src/lib/format";
 
 const PAGE_SIZE = 15;
 
-const VEHICLE_FILTERS = [
-  { label: "All", value: "" },
-  { label: "Open Trailer", value: "open_trailer" },
-  { label: "Container", value: "closed_container" },
-  { label: "Flatbed", value: "flatbed" },
-  { label: "Tanker", value: "tanker" },
-  { label: "Refrigerated", value: "refrigerated" },
-  { label: "Mini Truck", value: "mini_truck" },
-  { label: "Pickup", value: "pickup" },
-];
-
 export default function TransporterLoadsScreen() {
   const router = useRouter();
   const [loads, setLoads] = useState([]);
@@ -28,6 +17,7 @@ export default function TransporterLoadsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [vehicleFilter, setVehicleFilter] = useState("");
+  const [vehicleTypes, setVehicleTypes] = useState([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
@@ -55,6 +45,18 @@ export default function TransporterLoadsScreen() {
       setLoads((prev) => [...prev, ...rows]);
     }
   }, [vehicleFilter]);
+
+  useEffect(() => {
+    supabase
+      .from("loads")
+      .select("vehicle_type_req")
+      .eq("status", "open")
+      .gt("auction_end_time", new Date().toISOString())
+      .then(({ data }) => {
+        const unique = [...new Set((data ?? []).map((r) => r.vehicle_type_req).filter(Boolean))];
+        setVehicleTypes(unique);
+      });
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -131,8 +133,9 @@ export default function TransporterLoadsScreen() {
       {/* Vehicle filter chips */}
       <FlatList
         horizontal
-        data={VEHICLE_FILTERS}
-        keyExtractor={(f) => f.value}
+        style={{ flexGrow: 0 }}
+        data={[{ label: "All", value: "" }, ...vehicleTypes.map((v) => ({ label: v.replace(/_/g, " "), value: v }))]}
+        keyExtractor={(f) => f.value || "all"}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
         renderItem={({ item }) => (
@@ -177,10 +180,10 @@ const styles = StyleSheet.create({
   header:          { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
   headerTitle:     { fontSize: 18, fontWeight: "800", color: "#0f172a" },
   back:            { fontSize: 14, color: "#1e4dd0", fontWeight: "600", width: 60 },
-  filterRow:       { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  chip:            { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "#f1f5f9", borderWidth: 1, borderColor: "#e2e8f0" },
+  filterRow:       { paddingHorizontal: 16, paddingVertical: 6, gap: 6 },
+  chip:            { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: "#f1f5f9", borderWidth: 1, borderColor: "#e2e8f0" },
   chipActive:      { backgroundColor: "#1e4dd0", borderColor: "#1e4dd0" },
-  chipText:        { fontSize: 12, fontWeight: "600", color: "#64748b" },
+  chipText:        { fontSize: 11, fontWeight: "600", color: "#64748b" },
   chipTextActive:  { color: "#fff" },
   list:            { padding: 16, gap: 10, paddingBottom: 32 },
   center:          { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 60 },

@@ -137,6 +137,7 @@ export default function ShipperLoadsScreen() {
       {/* Status filter chips */}
       <FlatList
         horizontal
+        style={{ flexGrow: 0 }}
         data={[{ label: "All", value: "" }, ...STATUSES.map((s) => ({ label: s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()), value: s }))]}
         keyExtractor={(f) => f.value || "all"}
         showsHorizontalScrollIndicator={false}
