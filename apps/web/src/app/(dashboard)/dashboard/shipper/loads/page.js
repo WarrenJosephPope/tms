@@ -26,6 +26,9 @@ export default async function ShipperLoadsPage({ searchParams }) {
   const { data: profile } = await supabase
     .from("user_profiles").select("company_id").eq("id", user.id).single();
 
+  // Transition any open loads whose auction has ended to the correct status
+  await supabase.rpc("transition_expired_loads", { p_company_id: profile.company_id });
+
   const sp = await searchParams;
   const search = sp?.search?.trim() ?? "";
   const statusFilter = sp?.status ?? "";

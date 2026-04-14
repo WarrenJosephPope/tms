@@ -17,6 +17,7 @@ const STATUS_FILTERS = [
 
 const STATUS_COLOR = {
   active:    { bg: "#fff7ed", text: "#ea580c" },
+  pending:   { bg: "#fef9c3", text: "#ca8a04" },
   won:       { bg: "#f0fdf4", text: "#16a34a" },
   lost:      { bg: "#fef2f2", text: "#dc2626" },
   withdrawn: { bg: "#f1f5f9", text: "#64748b" },
@@ -70,7 +71,10 @@ export default function TransporterBidsScreen() {
   };
 
   const renderBid = ({ item }) => {
-    const colors = STATUS_COLOR[item.status] ?? STATUS_COLOR.active;
+    const auctionEnded = item.status === "active" && item.load?.auction_end_time && new Date(item.load.auction_end_time) < new Date();
+    const displayKey = auctionEnded ? "pending" : item.status;
+    const colors = STATUS_COLOR[displayKey] ?? STATUS_COLOR.active;
+    const displayLabel = auctionEnded ? "pending decision" : item.status;
     return (
       <TouchableOpacity
         style={styles.card}
@@ -82,7 +86,7 @@ export default function TransporterBidsScreen() {
             {item.load?.origin_city} → {item.load?.dest_city}
           </Text>
           <View style={[styles.badge, { backgroundColor: colors.bg }]}>
-            <Text style={[styles.badgeText, { color: colors.text }]}>{item.status}</Text>
+            <Text style={[styles.badgeText, { color: colors.text }]}>{displayLabel}</Text>
           </View>
         </View>
         <View style={styles.cardRow}>

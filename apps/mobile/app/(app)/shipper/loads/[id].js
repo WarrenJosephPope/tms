@@ -84,6 +84,9 @@ export default function ShipperLoadDetail() {
           } else {
             fetchBlindCount();
           }
+        } else if (loadData.status === "under_review" || loadData.status === "open") {
+          // Auction ended: fetch bids so shipper can review and award
+          fetchBids();
         }
       }
       setLoading(false);
@@ -277,6 +280,50 @@ export default function ShipperLoadDetail() {
               ))}
             </>
           )}
+        </View>
+      )}
+
+      {/* Post-auction: bids under review — shipper can still award */}
+      {!isAuctionOpen && (load.status === "under_review" || load.status === "open") && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>BIDS RECEIVED</Text>
+          {bids.length === 0 ? (
+            <Text style={styles.noBids}>No bids were received.</Text>
+          ) : (
+            <>
+              <Text style={styles.bidsSubtitle}>{bids.length} bid{bids.length !== 1 ? "s" : ""} — select a bid to award this load</Text>
+              {bids.map((bid, i) => (
+                <View key={bid.bid_id} style={[styles.bidCard, i === 0 && styles.bidCardTop]}>
+                  {i === 0 && <Text style={styles.bidRank}>🏆 Lowest Bid</Text>}
+                  <View style={styles.bidCardRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.bidCompany}>{bid.company_name ?? "—"}</Text>
+                      {bid.eta_days && <Text style={styles.bidMeta}>ETA: {bid.eta_days} days</Text>}
+                      {bid.notes && <Text style={styles.bidNote} numberOfLines={2}>{bid.notes}</Text>}
+                    </View>
+                    <Text style={styles.bidAmount}>{formatINR(bid.amount)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.acceptBtn, accepting === bid.bid_id && styles.btnDisabled]}
+                    onPress={() => acceptBid(bid.bid_id, bid.amount, bid.company_name)}
+                    disabled={accepting !== null}
+                  >
+                    <Text style={styles.acceptBtnText}>
+                      {accepting === bid.bid_id ? "Accepting…" : "Accept Bid"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
+      )}
+
+      {/* Post-auction: expired with no bids */}
+      {load.status === "expired" && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>AUCTION EXPIRED</Text>
+          <Text style={styles.noBids}>This auction ended with no bids received.</Text>
         </View>
       )}
 

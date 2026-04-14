@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Package, Gavel, MapPin, TrendingDown } from "lucide-react";
+import { Package, Gavel, MapPin } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
 import { formatINR } from "@/lib/format";
@@ -17,8 +17,13 @@ export default async function ShipperDashboardPage() {
     .eq("id", user.id)
     .single();
 
+  // Transition any open loads whose auction has ended to the correct status
+  await supabase.rpc("transition_expired_loads", { p_company_id: profile.company_id });
+
+  const nowIso = new Date().toISOString();
+
   // Fetch summary data in parallel
-  const [loadsResult, activeTripsResult, openAuctionsResult] = await Promise.all([
+  const [loadsResult, activeTripsResult, openAuctionsResult, needsAwardResult] = await Promise.all([
     supabase
       .from("loads")
       .select("id, status, origin_city, dest_city, opening_price, auction_end_time, created_at")
@@ -34,12 +39,19 @@ export default async function ShipperDashboardPage() {
       .from("loads")
       .select("id", { count: "exact", head: true })
       .eq("shipper_company_id", profile.company_id)
-      .eq("status", "open"),
+      .eq("status", "open")
+      .gt("auction_end_time", nowIso),
+    supabase
+      .from("loads")
+      .select("id", { count: "exact", head: true })
+      .eq("shipper_company_id", profile.company_id)
+      .eq("status", "under_review"),
   ]);
 
   const recentLoads = loadsResult.data ?? [];
   const activeTrips = activeTripsResult.data ?? [];
   const openCount = openAuctionsResult.count ?? 0;
+  const needsAwardCount = needsAwardResult.count ?? 0;
 
   return (
     <div className="space-y-6">
@@ -55,7 +67,7 @@ export default async function ShipperDashboardPage() {
         <StatCard label="Total Loads" value={recentLoads.length} icon={<Package size={20} />} />
         <StatCard label="Live Auctions" value={openCount} icon={<Gavel size={20} />} color="brand" />
         <StatCard label="Active Trips" value={activeTrips.length} icon={<MapPin size={20} />} color="green" />
-        <StatCard label="Avg Saving" value="—" icon={<TrendingDown size={20} />} color="emerald" />
+        <StatCard label="Awaiting Award" value={needsAwardCount} icon={<Gavel size={20} />} color="yellow" />
       </div>
 
       {/* Recent loads table */}

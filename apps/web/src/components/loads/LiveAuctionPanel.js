@@ -466,7 +466,37 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
               <span className="ml-auto text-xs font-semibold text-slate-500 bg-slate-100 rounded-full px-3 py-1">
                 Not selected
               </span>
+            ) : myClosedBid.status === "active" ? (
+              <span className="ml-auto text-xs font-semibold text-amber-700 bg-amber-100 rounded-full px-3 py-1">
+                Pending decision
+              </span>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* ── TRANSPORTER: awaiting award decision (under_review) ── */}
+      {userType === "transporter" && !isAuctionOpen && load.status === "under_review" && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <Clock size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Awaiting Award Decision</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              The auction has ended. The shipper is reviewing bids and will award the load shortly.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── TRANSPORTER: auction expired with no bids ── */}
+      {userType === "transporter" && !isAuctionOpen && load.status === "expired" && !myClosedBid && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-start gap-3">
+          <Clock size={18} className="text-slate-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-slate-600">Auction Expired</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              This auction ended without any bids being placed.
+            </p>
           </div>
         </div>
       )}
@@ -676,7 +706,7 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
                       >
                         History
                       </button>
-                      {load.status === "open" && (
+                      {(load.status === "open" || load.status === "under_review") && (
                         <button
                           onClick={() => acceptBid(latest.id)}
                           className="btn-primary text-xs px-3 py-1.5"

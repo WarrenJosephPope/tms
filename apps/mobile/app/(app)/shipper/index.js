@@ -23,6 +23,7 @@ export default function ShipperDashboard() {
   const [state, setState] = useState({
     recentLoads: [],
     openCount: 0,
+    needsAwardCount: 0,
     activeTripsCount: 0,
     activeTrips: [],
     userName: "",
@@ -44,7 +45,12 @@ export default function ShipperDashboard() {
     const companyId = profile.company_id;
     const userName = profile.full_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email;
 
-    const [loadsRes, openCountRes, activeTripsRes] = await Promise.all([
+    // Transition any open loads whose auction has ended to the correct status
+    await supabase.rpc("transition_expired_loads", { p_company_id: companyId });
+
+    const nowIso = new Date().toISOString();
+
+    const [loadsRes, openCountRes, activeTripsRes, needsAwardRes] = await Promise.all([
       supabase
         .from("loads")
         .select("id, load_number, origin_city, dest_city, opening_price, status, auction_end_time, pickup_date, commodity")
@@ -55,17 +61,24 @@ export default function ShipperDashboard() {
         .from("loads")
         .select("id", { count: "exact", head: true })
         .eq("shipper_company_id", companyId)
-        .eq("status", "open"),
+        .eq("status", "open")
+        .gt("auction_end_time", nowIso),
       supabase
         .from("trips")
         .select("id, load:loads(origin_city, dest_city)")
         .eq("shipper_company_id", companyId)
         .eq("status", "in_transit"),
+      supabase
+        .from("loads")
+        .select("id", { count: "exact", head: true })
+        .eq("shipper_company_id", companyId)
+        .eq("status", "under_review"),
     ]);
 
     setState({
       recentLoads: loadsRes.data ?? [],
       openCount: openCountRes.count ?? 0,
+      needsAwardCount: needsAwardRes.count ?? 0,
       activeTripsCount: activeTripsRes.data?.length ?? 0,
       activeTrips: activeTripsRes.data ?? [],
       userName,
@@ -105,7 +118,7 @@ export default function ShipperDashboard() {
         <StatCard label="Total Loads" value={state.recentLoads.length} color="#1e4dd0" />
         <StatCard label="Live Auctions" value={state.openCount} color="#8b5cf6" />
         <StatCard label="Active Trips" value={state.activeTripsCount} color="#16a34a" />
-        <StatCard label="Avg Saving" value="—" color="#0ea5e9" />
+        <StatCard label="Needs Award" value={state.needsAwardCount} color="#f59e0b" />
       </View>
 
       {/* Active trips */}

@@ -260,6 +260,9 @@ export default function TransporterLoadDetail() {
             {existingBid.status && existingBid.status !== "active" && (
               <InfoRow label="Result" value={existingBid.status.toUpperCase()} />
             )}
+            {existingBid.status === "active" && !isAuctionOpen && (
+              <InfoRow label="Status" value="Under review — pending award" />
+            )}
           </View>
         )}
 
@@ -332,7 +335,11 @@ export default function TransporterLoadDetail() {
         {!canBid && !isAuctionOpen && (
           <View style={styles.closedNote}>
             <Text style={styles.closedNoteText}>
-              This auction has ended. No further bids can be placed.
+              {load.status === "under_review"
+                ? "The auction has ended. The shipper is reviewing bids and will award the load shortly."
+                : load.status === "expired"
+                ? "This auction expired without any bids being placed."
+                : "This auction has ended. No further bids can be placed."}
             </Text>
           </View>
         )}

@@ -65,6 +65,8 @@ export default function ShipperLoadsScreen() {
         .from("user_profiles").select("company_id").eq("id", user.id).single();
       if (!profile) { setLoading(false); return; }
       setCompanyId(profile.company_id);
+      // Transition any open loads whose auction has ended to the correct status
+      await supabase.rpc("transition_expired_loads", { p_company_id: profile.company_id });
       setPage(0);
       await fetchLoads(profile.company_id, 0, true);
       setLoading(false);
