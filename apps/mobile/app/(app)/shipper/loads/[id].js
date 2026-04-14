@@ -178,6 +178,15 @@ export default function ShipperLoadDetail() {
   const statusColors = LOAD_STATUS_COLOR[load.status] ?? LOAD_STATUS_COLOR.expired;
   const bidStartTime = load.bid_start_time ? new Date(load.bid_start_time) : null;
 
+  // Group by company, keep lowest bid per transporter, sort ascending
+  const lowestBidsPerCompany = Object.values(
+    bids.reduce((acc, bid) => {
+      const key = bid.company_name ?? bid.bid_id;
+      if (!acc[key] || bid.amount < acc[key].amount) acc[key] = bid;
+      return acc;
+    }, {})
+  ).sort((a, b) => a.amount - b.amount);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -251,12 +260,14 @@ export default function ShipperLoadDetail() {
                 <Text style={styles.blindCount}>{blindBidCount} sealed bid{blindBidCount !== 1 ? "s" : ""} received</Text>
               )}
             </View>
-          ) : bids.length === 0 ? (
+          ) : lowestBidsPerCompany.length === 0 ? (
             <Text style={styles.noBids}>No bids received yet.</Text>
           ) : (
             <>
-              <Text style={styles.bidsSubtitle}>{bids.length} bid{bids.length !== 1 ? "s" : ""} received — sorted by lowest amount</Text>
-              {bids.map((bid, i) => (
+              <Text style={styles.bidsSubtitle}>
+                {lowestBidsPerCompany.length} transporter{lowestBidsPerCompany.length !== 1 ? "s" : ""} — lowest bid per company, sorted ascending
+              </Text>
+              {lowestBidsPerCompany.map((bid, i) => (
                 <View key={bid.bid_id} style={[styles.bidCard, i === 0 && styles.bidCardTop]}>
                   {i === 0 && <Text style={styles.bidRank}>🏆 Lowest Bid</Text>}
                   <View style={styles.bidCardRow}>
@@ -291,8 +302,10 @@ export default function ShipperLoadDetail() {
             <Text style={styles.noBids}>No bids were received.</Text>
           ) : (
             <>
-              <Text style={styles.bidsSubtitle}>{bids.length} bid{bids.length !== 1 ? "s" : ""} — select a bid to award this load</Text>
-              {bids.map((bid, i) => (
+              <Text style={styles.bidsSubtitle}>
+                {lowestBidsPerCompany.length} transporter{lowestBidsPerCompany.length !== 1 ? "s" : ""} — select a bid to award this load
+              </Text>
+              {lowestBidsPerCompany.map((bid, i) => (
                 <View key={bid.bid_id} style={[styles.bidCard, i === 0 && styles.bidCardTop]}>
                   {i === 0 && <Text style={styles.bidRank}>🏆 Lowest Bid</Text>}
                   <View style={styles.bidCardRow}>

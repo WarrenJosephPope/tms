@@ -4,8 +4,10 @@ import {
   StyleSheet, RefreshControl, ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../../../src/lib/supabase";
 import { formatINR, formatLoadNumber } from "../../../../src/lib/format";
+import { useSidebar } from "../../../../src/contexts/SidebarContext";
 
 const STATUSES = ["open", "under_review", "awarded", "assigned", "in_transit", "delivered", "cancelled", "expired"];
 
@@ -24,6 +26,7 @@ const PAGE_SIZE = 20;
 
 export default function ShipperLoadsScreen() {
   const router = useRouter();
+  const { openSidebar } = useSidebar();
   const [loads, setLoads] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -129,11 +132,17 @@ export default function ShipperLoadsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
+        <TouchableOpacity onPress={openSidebar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="menu-outline" size={26} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Loads</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity
+          style={styles.postBtn}
+          onPress={() => router.push("/(app)/shipper/loads/new")}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={18} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {/* Status filter chips */}
@@ -186,8 +195,8 @@ export default function ShipperLoadsScreen() {
 const styles = StyleSheet.create({
   container:      { flex: 1, backgroundColor: "#f8fafc" },
   header:         { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
-  headerTitle:    { fontSize: 18, fontWeight: "800", color: "#0f172a" },
-  back:           { fontSize: 14, color: "#1e4dd0", fontWeight: "600", width: 60 },
+  headerTitle:    { fontSize: 18, fontWeight: "800", color: "#0f172a", flex: 1, marginHorizontal: 12 },
+  postBtn:        { backgroundColor: "#1e4dd0", borderRadius: 20, width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   filterRow:      { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   chip:           { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "#f1f5f9", borderWidth: 1, borderColor: "#e2e8f0" },
   chipActive:     { backgroundColor: "#1e4dd0", borderColor: "#1e4dd0" },

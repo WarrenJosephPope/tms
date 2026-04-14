@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import {
   View, Text, FlatList, TouchableOpacity,
-  RefreshControl, StyleSheet, Alert,
+  RefreshControl, StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../src/lib/supabase";
+import { useSidebar } from "../../src/contexts/SidebarContext";
 
 const STATUS_COLOR = {
   pending:    { bg: "#f1f5f9", text: "#475569" },
@@ -15,6 +17,7 @@ const STATUS_COLOR = {
 
 export default function TripsScreen() {
   const router = useRouter();
+  const { openSidebar } = useSidebar();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,11 +51,6 @@ export default function TripsScreen() {
 
   useEffect(() => { fetchTrips(); }, []);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    router.replace("/(auth)/login");
-  }
-
   const renderTrip = ({ item }) => {
     const colors = STATUS_COLOR[item.status] ?? STATUS_COLOR.pending;
     return (
@@ -85,10 +83,11 @@ export default function TripsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Trips</Text>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.signOut}>Sign out</Text>
+        <TouchableOpacity onPress={openSidebar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="menu-outline" size={26} color="#0f172a" />
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Trips</Text>
+        <View style={{ width: 34 }} />
       </View>
 
       <FlatList
@@ -116,8 +115,7 @@ export default function TripsScreen() {
 const styles = StyleSheet.create({
   container:   { flex: 1, backgroundColor: "#f8fafc" },
   header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: "#0f172a" },
-  signOut:     { fontSize: 13, color: "#1e4dd0", fontWeight: "600" },
+  headerTitle: { fontSize: 20, fontWeight: "800", color: "#0f172a", flex: 1, marginHorizontal: 12 },
   list:        { padding: 16, gap: 12 },
   tripCard:    { backgroundColor: "#fff", borderRadius: 12, padding: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   tripHeader:  { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },

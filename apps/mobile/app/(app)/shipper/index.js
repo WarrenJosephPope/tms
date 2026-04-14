@@ -4,8 +4,10 @@ import {
   StyleSheet, RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../../src/lib/supabase";
 import { formatINR, timeUntil } from "../../../src/lib/format";
+import { useSidebar } from "../../../src/contexts/SidebarContext";
 
 const LOAD_STATUS_COLOR = {
   open:         { bg: "#fff7ed", text: "#ea580c" },
@@ -20,6 +22,7 @@ const LOAD_STATUS_COLOR = {
 
 export default function ShipperDashboard() {
   const router = useRouter();
+  const { openSidebar } = useSidebar();
   const [state, setState] = useState({
     recentLoads: [],
     openCount: 0,
@@ -94,11 +97,6 @@ export default function ShipperDashboard() {
     setRefreshing(false);
   };
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    router.replace("/(auth)/login");
-  }
-
   return (
     <ScrollView
       style={styles.container}
@@ -107,9 +105,19 @@ export default function ShipperDashboard() {
     >
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity
+          onPress={openSidebar}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="menu-outline" size={26} color="#0f172a" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>{state.userName || "Shipper"}</Text>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.signOut}>Sign out</Text>
+        <TouchableOpacity
+          style={styles.postBtn}
+          onPress={() => router.push("/(app)/shipper/loads/new")}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -195,8 +203,8 @@ const styles = StyleSheet.create({
   container:     { flex: 1, backgroundColor: "#f8fafc" },
   content:       { paddingBottom: 32 },
   header:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
-  headerTitle:   { fontSize: 20, fontWeight: "800", color: "#0f172a" },
-  signOut:       { fontSize: 13, color: "#1e4dd0", fontWeight: "600" },
+  headerTitle:   { fontSize: 20, fontWeight: "800", color: "#0f172a", flex: 1, marginHorizontal: 12 },
+  postBtn:       { backgroundColor: "#1e4dd0", borderRadius: 20, width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   statsGrid:     { flexDirection: "row", flexWrap: "wrap", padding: 12, gap: 8 },
   statCard:      { flex: 1, minWidth: "45%", backgroundColor: "#fff", borderRadius: 12, padding: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
   statValue:     { fontSize: 28, fontWeight: "800", marginBottom: 2 },
