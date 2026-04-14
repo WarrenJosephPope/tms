@@ -5,6 +5,8 @@ import {
   TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useSidebar } from "../../../../src/contexts/SidebarContext";
 import { supabase } from "../../../../src/lib/supabase";
 import { formatINR, timeUntil } from "../../../../src/lib/format";
 
@@ -12,6 +14,7 @@ const PAGE_SIZE = 15;
 
 export default function TransporterLoadsScreen() {
   const router = useRouter();
+  const { openSidebar } = useSidebar();
   const [loads, setLoads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -123,11 +126,13 @@ export default function TransporterLoadsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="arrow-back" size={24} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Load Market</Text>
-        <View style={{ width: 50 }} />
+        <TouchableOpacity onPress={openSidebar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="menu-outline" size={26} color="#0f172a" />
+        </TouchableOpacity>
       </View>
 
       {/* Vehicle filter chips */}

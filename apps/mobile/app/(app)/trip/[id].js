@@ -5,6 +5,8 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import MapView, { Marker, Polyline } from "react-native-maps";
+import { Ionicons } from "@expo/vector-icons";
+import { useSidebar } from "../../../src/contexts/SidebarContext";
 import { supabase } from "../../../src/lib/supabase";
 import { startTracking, stopTracking } from "../../../src/lib/locationTracking";
 import { fetchRoutePolyline } from "../../../src/lib/directions";
@@ -125,14 +127,20 @@ export default function TripDetailScreen() {
   }
 
   const { load, vehicle, shipper_company } = trip;
+  const { openSidebar } = useSidebar();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
-      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-        <Text style={styles.backBtnText}>← Back</Text>
-      </TouchableOpacity>
-
+    <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="arrow-back" size={24} color="#0f172a" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>{load?.origin_city} → {load?.dest_city}</Text>
+        <TouchableOpacity onPress={openSidebar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="menu-outline" size={26} color="#0f172a" />
+        </TouchableOpacity>
+      </View>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.routeTitle}>
         {load?.origin_city} → {load?.dest_city}
       </Text>
@@ -238,7 +246,8 @@ export default function TripDetailScreen() {
           </TouchableOpacity>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -337,7 +346,9 @@ function InfoRow({ label, value }) {
 
 const styles = StyleSheet.create({
   container:      { flex: 1, backgroundColor: "#f8fafc" },
-  content:        { padding: 16, paddingTop: 60, paddingBottom: 40 },
+  header:           { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 60, paddingBottom: 14, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
+  headerTitle:      { fontSize: 16, fontWeight: "700", color: "#0f172a", flex: 1, marginHorizontal: 12 },
+  content:          { padding: 16, paddingTop: 16, paddingBottom: 40 },
   center:         { flex: 1, justifyContent: "center", alignItems: "center" },
   errorText:      { color: "#94a3b8" },
   backBtn:        { marginBottom: 12 },

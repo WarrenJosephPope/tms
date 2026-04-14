@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+import { useSidebar } from "../../../../src/contexts/SidebarContext";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { supabase } from "../../../../src/lib/supabase";
@@ -113,6 +114,7 @@ function StopAddressInput({ stop, onUpdate }) {
 
 export default function PostLoadScreen() {
   const router = useRouter();
+  const { openSidebar } = useSidebar();
 
   const [profile,      setProfile]      = useState(null);
   const [loading,      setLoading]      = useState(true);
@@ -370,7 +372,9 @@ export default function PostLoadScreen() {
             <Ionicons name="arrow-back" size={24} color="#0f172a" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Post a Load</Text>
-          <View style={{ width: 24 }} />
+          <TouchableOpacity onPress={openSidebar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="menu-outline" size={26} color="#0f172a" />
+          </TouchableOpacity>
         </View>
 
         <FlatList

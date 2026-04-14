@@ -4,6 +4,8 @@ import {
   StyleSheet, RefreshControl, ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useSidebar } from "../../../src/contexts/SidebarContext";
 import { supabase } from "../../../src/lib/supabase";
 import { formatINR } from "../../../src/lib/format";
 
@@ -25,6 +27,7 @@ const STATUS_COLOR = {
 
 export default function TransporterBidsScreen() {
   const router = useRouter();
+  const { openSidebar } = useSidebar();
   const [bids, setBids] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
@@ -105,11 +108,13 @@ export default function TransporterBidsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="arrow-back" size={24} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Bids</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity onPress={openSidebar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="menu-outline" size={26} color="#0f172a" />
+        </TouchableOpacity>
       </View>
 
       {/* Status filter chips */}
