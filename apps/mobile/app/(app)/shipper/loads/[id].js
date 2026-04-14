@@ -370,7 +370,7 @@ function InfoRow({ label, value }) {
 
 const styles = StyleSheet.create({
   container:     { flex: 1, backgroundColor: "#f8fafc" },
-  content:       { padding: 16, paddingBottom: 48 },
+  content:       { padding: 16, paddingTop: 60, paddingBottom: 48 },
   center:        { flex: 1, justifyContent: "center", alignItems: "center" },
   errText:       { color: "#94a3b8", fontSize: 14 },
   backBtn:       { marginBottom: 10 },
