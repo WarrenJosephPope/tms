@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
+import { resolveHomeRoute } from "../index";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -37,10 +38,17 @@ export default function LoginScreen() {
     });
     setLoading(false);
     if (error) { Alert.alert("Error", error.message); return; }
-    // Determine home screen based on role
-    const { resolveHomeRoute } = await import("../index");
-    const route = await resolveHomeRoute(data.session);
-    router.replace(route);
+    if (!data.session) { Alert.alert("Error", "Verification succeeded but no session was returned. Please try again."); return; }
+    try {
+      const route = await resolveHomeRoute(data.session);
+      if (route === "/(auth)/login") {
+        Alert.alert("Access Denied", "No account profile found for this number. Please contact support.");
+        return;
+      }
+      router.replace(route);
+    } catch (e) {
+      Alert.alert("Error", e.message ?? "Failed to load your profile. Please try again.");
+    }
   }
 
   return (
@@ -85,7 +93,6 @@ export default function LoginScreen() {
               maxLength={6}
               value={otp}
               onChangeText={setOtp}
-              autoFocus
             />
             <TouchableOpacity
               style={[styles.btn, loading && styles.btnDisabled]}
@@ -152,10 +159,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   otpInput: {
+    flex: 0,
+    width: "100%",
     borderRadius: 8,
     textAlign: "center",
     fontSize: 22,
     letterSpacing: 8,
+    height: 56,
     marginBottom: 16,
   },
   otpHint: { fontSize: 13, color: "#64748b", marginBottom: 12, textAlign: "center" },
