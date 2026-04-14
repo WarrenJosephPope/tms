@@ -39,6 +39,7 @@ export default function LoginScreen() {
     setLoading(false);
     if (error) { Alert.alert("Error", error.message); return; }
     if (!data.session) { Alert.alert("Error", "Verification succeeded but no session was returned. Please try again."); return; }
+    await supabase.rpc("clear_otp_logs", { p_phone: formatted }).catch(() => {});
     try {
       const route = await resolveHomeRoute(data.session);
       if (route === "/(auth)/login") {

@@ -68,6 +68,7 @@ export default function RegisterTypePage() {
         toast.error("Phone verification succeeded but no session was created. Please try again.");
         return;
       }
+      await supabase.rpc("clear_otp_logs", { p_phone: formatted }).catch(() => {});
       setStep("company");
     });
   }
