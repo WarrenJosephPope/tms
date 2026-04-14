@@ -1,0 +1,383 @@
+import { useEffect, useState, useRef, useCallback } from "react";
+import {
+  View, Text, ScrollView, TouchableOpacity,
+  StyleSheet, Alert, ActivityIndicator,
+} from "react-native";
+import MapView, { Marker, Polyline } from "react-native-maps";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { supabase } from "../../../../src/lib/supabase";
+import { formatINR, formatLoadNumber, timeUntil } from "../../../../src/lib/format";
+
+const LOAD_STATUS_COLOR = {
+  open:         { bg: "#fff7ed", text: "#ea580c" },
+  under_review: { bg: "#fdf4ff", text: "#9333ea" },
+  awarded:      { bg: "#f0f9ff", text: "#0284c7" },
+  assigned:     { bg: "#eff6ff", text: "#2563eb" },
+  in_transit:   { bg: "#fff7ed", text: "#f97316" },
+  delivered:    { bg: "#f0fdf4", text: "#16a34a" },
+  cancelled:    { bg: "#fef2f2", text: "#dc2626" },
+  expired:      { bg: "#f1f5f9", text: "#64748b" },
+};
+
+const PICKUP_COLOR = "#16a34a";
+const DELIVERY_COLOR = "#dc2626";
+
+export default function ShipperLoadDetail() {
+  const { id: loadId } = useLocalSearchParams();
+  const router = useRouter();
+
+  const [load, setLoad] = useState(null);
+  const [stops, setStops] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Auction
+  const [auctionEndTime, setAuctionEndTime] = useState(null);
+  const [timeLeft, setTimeLeft] = useState("");
+  const [isAuctionOpen, setIsAuctionOpen] = useState(false);
+  const [auctionStarted, setAuctionStarted] = useState(false);
+
+  // Bids
+  const [bids, setBids] = useState([]);
+  const [blindBidCount, setBlindBidCount] = useState(null);
+  const [accepting, setAccepting] = useState(null);
+
+  const channelRef = useRef(null);
+
+  const fetchBids = useCallback(async () => {
+    const { data, error } = await supabase.rpc("get_load_bids_for_shipper", { p_load_id: loadId });
+    if (!error) setBids(data ?? []);
+  }, [loadId]);
+
+  const fetchBlindCount = useCallback(async () => {
+    const { data } = await supabase.rpc("get_load_active_bid_count", { p_load_id: loadId });
+    if (typeof data === "number") setBlindBidCount(data);
+  }, [loadId]);
+
+  useEffect(() => {
+    async function init() {
+      const [{ data: loadData }, { data: stopsData }] = await Promise.all([
+        supabase.from("loads").select("*").eq("id", loadId).single(),
+        supabase
+          .from("load_stops")
+          .select("id, stop_type, stop_order, address, city, state, lat, lng")
+          .eq("load_id", loadId)
+          .order("stop_type").order("stop_order"),
+      ]);
+
+      setLoad(loadData);
+      setStops(stopsData ?? []);
+
+      if (loadData) {
+        const endTime = new Date(loadData.auction_end_time);
+        setAuctionEndTime(endTime);
+        const open = loadData.status === "open" && endTime > new Date();
+        setIsAuctionOpen(open);
+
+        const startTime = loadData.bid_start_time ? new Date(loadData.bid_start_time) : null;
+        const started = !startTime || new Date() >= startTime;
+        setAuctionStarted(started);
+
+        if (open) {
+          if (started) {
+            fetchBids();
+          } else {
+            fetchBlindCount();
+          }
+        }
+      }
+      setLoading(false);
+    }
+    init();
+  }, [loadId]);
+
+  useEffect(() => {
+    if (!auctionEndTime) return;
+    const tick = () => {
+      setTimeLeft(timeUntil(auctionEndTime.toISOString()));
+      const open = load?.status === "open" && auctionEndTime > new Date();
+      setIsAuctionOpen(open);
+      if (load?.bid_start_time && !auctionStarted) {
+        if (new Date() >= new Date(load.bid_start_time)) {
+          setAuctionStarted(true);
+          fetchBids();
+        }
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1_000);
+    return () => clearInterval(id);
+  }, [auctionEndTime, load?.status, load?.bid_start_time, auctionStarted]);
+
+  useEffect(() => {
+    if (!load || load.status !== "open") return;
+
+    const channel = supabase
+      .channel(`sh-load:${loadId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "bids", filter: `load_id=eq.${loadId}` },
+        () => {
+          if (auctionStarted) fetchBids();
+          else fetchBlindCount();
+        }
+      )
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "loads", filter: `id=eq.${loadId}` },
+        (payload) => {
+          if (payload.new?.auction_end_time) {
+            setAuctionEndTime(new Date(payload.new.auction_end_time));
+          }
+          setLoad((prev) => ({ ...prev, ...payload.new }));
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+    return () => supabase.removeChannel(channel);
+  }, [load?.status, loadId, auctionStarted]);
+
+  async function acceptBid(bidId, amount, companyName) {
+    Alert.alert(
+      "Accept Bid",
+      `Award this load to ${companyName ?? "this transporter"} for ${formatINR(amount)}? This will close the auction and create a trip.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Accept Bid",
+          onPress: async () => {
+            setAccepting(bidId);
+            const { data: trip, error } = await supabase.rpc("award_load_to_bid", {
+              p_load_id:         loadId,
+              p_bid_id:          bidId,
+              p_shipper_user_id: (await supabase.auth.getUser()).data.user.id,
+            });
+            setAccepting(null);
+            if (error) {
+              Alert.alert("Error", error.message);
+              return;
+            }
+            Alert.alert("Bid Accepted", "Trip has been created successfully!");
+            setLoad((prev) => ({ ...prev, status: "awarded" }));
+            setBids([]);
+          },
+        },
+      ]
+    );
+  }
+
+  if (loading) {
+    return <View style={styles.center}><ActivityIndicator color="#1e4dd0" size="large" /></View>;
+  }
+  if (!load) {
+    return <View style={styles.center}><Text style={styles.errText}>Load not found.</Text></View>;
+  }
+
+  const statusColors = LOAD_STATUS_COLOR[load.status] ?? LOAD_STATUS_COLOR.expired;
+  const bidStartTime = load.bid_start_time ? new Date(load.bid_start_time) : null;
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <Text style={styles.backBtnText}>← Back</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.loadNum}>{formatLoadNumber(load.load_number)}</Text>
+      <Text style={styles.routeTitle}>{load.origin_city} → {load.dest_city}</Text>
+
+      {/* Status + auction timer */}
+      <View style={styles.statusRow}>
+        <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
+          <Text style={[styles.statusText, { color: statusColors.text }]}>
+            {load.status.replace(/_/g, " ").toUpperCase()}
+          </Text>
+        </View>
+        {isAuctionOpen && (
+          <Text style={styles.auctionTimer}>
+            {auctionStarted ? "⚡" : "🔒"} {timeLeft}
+          </Text>
+        )}
+      </View>
+
+      {/* Map */}
+      {stops.length > 0 && stops.some((s) => s.lat != null) && (
+        <StopsMapView stops={stops} />
+      )}
+
+      {/* Load info */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>LOAD DETAILS</Text>
+        <InfoRow label="Commodity" value={load.commodity} />
+        <InfoRow label="Weight" value={load.weight_tonnes ? `${load.weight_tonnes} T` : undefined} />
+        <InfoRow label="Vehicle type" value={load.vehicle_type_req?.replace(/_/g, " ")} />
+        <InfoRow label="Opening price" value={formatINR(load.opening_price)} />
+        {load.pickup_date && (
+          <InfoRow label="Pickup date" value={new Date(load.pickup_date).toLocaleDateString("en-IN", { dateStyle: "medium" })} />
+        )}
+        {load.special_instructions && (
+          <InfoRow label="Instructions" value={load.special_instructions} />
+        )}
+      </View>
+
+      {/* Stops detail */}
+      {stops.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>STOPS</Text>
+          {stops.map((stop, i) => (
+            <View key={stop.id ?? i} style={styles.stopRow}>
+              <View style={[styles.stopDot, { backgroundColor: stop.stop_type === "pickup" ? PICKUP_COLOR : DELIVERY_COLOR }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.stopType}>{stop.stop_type === "pickup" ? "Pickup" : "Delivery"} {i + 1}</Text>
+                <Text style={styles.stopAddress} numberOfLines={2}>{stop.address || stop.city}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Auction / bid section */}
+      {isAuctionOpen && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>AUCTION</Text>
+          {!auctionStarted && bidStartTime ? (
+            <View style={styles.blindBox}>
+              <Text style={styles.blindTitle}>🔒 Blind Phase Active</Text>
+              <Text style={styles.blindText}>
+                Open bidding starts at {bidStartTime.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.
+              </Text>
+              {blindBidCount !== null && (
+                <Text style={styles.blindCount}>{blindBidCount} sealed bid{blindBidCount !== 1 ? "s" : ""} received</Text>
+              )}
+            </View>
+          ) : bids.length === 0 ? (
+            <Text style={styles.noBids}>No bids received yet.</Text>
+          ) : (
+            <>
+              <Text style={styles.bidsSubtitle}>{bids.length} bid{bids.length !== 1 ? "s" : ""} received — sorted by lowest amount</Text>
+              {bids.map((bid, i) => (
+                <View key={bid.bid_id} style={[styles.bidCard, i === 0 && styles.bidCardTop]}>
+                  {i === 0 && <Text style={styles.bidRank}>🏆 Lowest Bid</Text>}
+                  <View style={styles.bidCardRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.bidCompany}>{bid.company_name ?? "—"}</Text>
+                      {bid.eta_days && <Text style={styles.bidMeta}>ETA: {bid.eta_days} days</Text>}
+                      {bid.notes && <Text style={styles.bidNote} numberOfLines={2}>{bid.notes}</Text>}
+                    </View>
+                    <Text style={styles.bidAmount}>{formatINR(bid.amount)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.acceptBtn, accepting === bid.bid_id && styles.btnDisabled]}
+                    onPress={() => acceptBid(bid.bid_id, bid.amount, bid.company_name)}
+                    disabled={accepting !== null}
+                  >
+                    <Text style={styles.acceptBtnText}>
+                      {accepting === bid.bid_id ? "Accepting…" : "Accept Bid"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
+      )}
+
+      {/* Awarded bid info */}
+      {(load.status === "awarded" || load.status === "assigned") && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>AWARD</Text>
+          <Text style={styles.awardedNote}>✓ Bid accepted. A trip is being prepared.</Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+function StopsMapView({ stops }) {
+  const valid = stops.filter((s) => s.lat != null && s.lng != null);
+  if (!valid.length) return null;
+
+  const lats = valid.map((s) => Number(s.lat));
+  const lngs = valid.map((s) => Number(s.lng));
+  const region = {
+    latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
+    longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+    latitudeDelta: Math.max(Math.max(...lats) - Math.min(...lats), 0.05) * 1.4,
+    longitudeDelta: Math.max(Math.max(...lngs) - Math.min(...lngs), 0.05) * 1.4,
+  };
+
+  return (
+    <View style={styles.mapSection}>
+      <Text style={styles.sectionLabel}>ROUTE</Text>
+      <MapView style={styles.map} initialRegion={region}>
+        {valid.map((s, i) => (
+          <Marker
+            key={s.id ?? i}
+            coordinate={{ latitude: Number(s.lat), longitude: Number(s.lng) }}
+            title={`${s.stop_type === "pickup" ? "Pickup" : "Delivery"} ${i + 1}`}
+            description={s.address || s.city}
+            pinColor={s.stop_type === "pickup" ? PICKUP_COLOR : DELIVERY_COLOR}
+          />
+        ))}
+        {valid.length > 1 && (
+          <Polyline
+            coordinates={valid.map((s) => ({ latitude: Number(s.lat), longitude: Number(s.lng) }))}
+            strokeColor="#f97316"
+            strokeWidth={2}
+          />
+        )}
+      </MapView>
+    </View>
+  );
+}
+
+function InfoRow({ label, value }) {
+  if (!value) return null;
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container:     { flex: 1, backgroundColor: "#f8fafc" },
+  content:       { padding: 16, paddingBottom: 48 },
+  center:        { flex: 1, justifyContent: "center", alignItems: "center" },
+  errText:       { color: "#94a3b8", fontSize: 14 },
+  backBtn:       { marginBottom: 10 },
+  backBtnText:   { color: "#1e4dd0", fontWeight: "600", fontSize: 14 },
+  loadNum:       { fontSize: 12, fontFamily: "monospace", color: "#94a3b8", marginBottom: 2 },
+  routeTitle:    { fontSize: 22, fontWeight: "800", color: "#0f172a", marginBottom: 10 },
+  statusRow:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+  statusBadge:   { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 },
+  statusText:    { fontSize: 12, fontWeight: "700", letterSpacing: 0.5 },
+  auctionTimer:  { fontSize: 13, fontWeight: "800", color: "#f97316" },
+  section:       { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  sectionLabel:  { fontSize: 10, fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 },
+  mapSection:    { backgroundColor: "#fff", borderRadius: 12, padding: 14, marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  map:           { width: "100%", height: 180, borderRadius: 8, overflow: "hidden", marginTop: 8 },
+  infoRow:       { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
+  infoLabel:     { fontSize: 13, color: "#64748b", flex: 1 },
+  infoValue:     { fontSize: 13, color: "#0f172a", fontWeight: "500", flex: 2, textAlign: "right" },
+  stopRow:       { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
+  stopDot:       { width: 10, height: 10, borderRadius: 5, marginTop: 3 },
+  stopType:      { fontSize: 11, fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 },
+  stopAddress:   { fontSize: 13, color: "#0f172a", marginTop: 2 },
+  blindBox:      { backgroundColor: "#f0f9ff", borderRadius: 10, padding: 14, borderWidth: 1, borderColor: "#bae6fd" },
+  blindTitle:    { fontSize: 13, fontWeight: "700", color: "#0284c7", marginBottom: 4 },
+  blindText:     { fontSize: 12, color: "#0369a1", marginBottom: 8 },
+  blindCount:    { fontSize: 16, fontWeight: "800", color: "#0284c7" },
+  noBids:        { color: "#94a3b8", fontSize: 13, textAlign: "center", paddingVertical: 16 },
+  bidsSubtitle:  { fontSize: 12, color: "#64748b", marginBottom: 12 },
+  bidCard:       { borderRadius: 10, padding: 14, backgroundColor: "#f8fafc", marginBottom: 10, borderWidth: 1, borderColor: "#e2e8f0" },
+  bidCardTop:    { borderColor: "#fbbf24", backgroundColor: "#fffbeb" },
+  bidRank:       { fontSize: 11, fontWeight: "700", color: "#d97706", marginBottom: 6 },
+  bidCardRow:    { flexDirection: "row", alignItems: "flex-start", marginBottom: 10 },
+  bidCompany:    { fontSize: 14, fontWeight: "700", color: "#0f172a", marginBottom: 2 },
+  bidMeta:       { fontSize: 12, color: "#64748b" },
+  bidNote:       { fontSize: 12, color: "#475569", marginTop: 2, fontStyle: "italic" },
+  bidAmount:     { fontSize: 18, fontWeight: "800", color: "#16a34a", marginLeft: 8 },
+  acceptBtn:     { backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 10, alignItems: "center" },
+  acceptBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  btnDisabled:   { opacity: 0.5 },
+  awardedNote:   { color: "#16a34a", fontSize: 14, fontWeight: "600", textAlign: "center", paddingVertical: 8 },
+});

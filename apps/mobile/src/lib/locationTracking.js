@@ -2,7 +2,7 @@ import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import { supabase } from "./supabase";
 
-export const LOCATION_TASK = "EPARIVAHAN_LOCATION_TASK";
+export const LOCATION_TASK = "TRACKING_MANAGEMENT_SYSTEM_LOCATION_TASK";
 
 // Interval in ms between location pushes
 const PUSH_INTERVAL_MS = 45_000;
@@ -68,9 +68,9 @@ export async function startTracking(tripId) {
     timeInterval: PUSH_INTERVAL_MS,
     showsBackgroundLocationIndicator: true,
     foregroundService: {
-      notificationTitle: "eParivahan — Trip Active",
+      notificationTitle: "Tracking Management System — Trip Active",
       notificationBody:  "Sharing your location with the shipper.",
-      notificationColor: "#f97316",
+      notificationColor: "#1e4dd0",
     },
   });
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, Dimensions,
@@ -55,7 +55,6 @@ export default function TripDetailScreen() {
   async function handleStartTrip() {
     setActionLoading(true);
     try {
-      // Update trip status to in_transit + set actual_pickup_at
       const { error } = await supabase
         .from("trips")
         .update({ status: "in_transit", actual_pickup_at: new Date().toISOString() })
@@ -111,7 +110,7 @@ export default function TripDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#f97316" size="large" />
+        <ActivityIndicator color="#1e4dd0" size="large" />
       </View>
     );
   }
@@ -319,7 +318,7 @@ const styles = StyleSheet.create({
   center:         { flex: 1, justifyContent: "center", alignItems: "center" },
   errorText:      { color: "#94a3b8" },
   backBtn:        { marginBottom: 12 },
-  backBtnText:    { color: "#f97316", fontWeight: "600", fontSize: 14 },
+  backBtnText:    { color: "#1e4dd0", fontWeight: "600", fontSize: 14 },
   routeTitle:     { fontSize: 22, fontWeight: "800", color: "#0f172a", marginBottom: 6 },
   statusBadge:    { fontSize: 12, fontWeight: "700", color: "#f97316", marginBottom: 20, letterSpacing: 1 },
   section:        { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
@@ -333,7 +332,7 @@ const styles = StyleSheet.create({
   actionBtnText:  { color: "#fff", fontWeight: "700", fontSize: 15 },
   startBtn:       { backgroundColor: "#16a34a" },
   pauseBtn:       { backgroundColor: "#64748b" },
-  deliverBtn:     { backgroundColor: "#f97316" },
+  deliverBtn:     { backgroundColor: "#1e4dd0" },
   btnDisabled:    { opacity: 0.5 },
   trackingActive: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#f0fdf4", borderRadius: 10, paddingVertical: 10 },
   liveDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: "#16a34a" },

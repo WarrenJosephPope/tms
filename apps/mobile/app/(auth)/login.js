@@ -1,4 +1,4 @@
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, StyleSheet, Alert,
@@ -32,12 +32,15 @@ export default function LoginScreen() {
   async function verifyOtp() {
     if (otp.length !== 6) { Alert.alert("Invalid OTP", "Enter the 6-digit OTP."); return; }
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({
+    const { data, error } = await supabase.auth.verifyOtp({
       phone: formatted, token: otp, type: "sms",
     });
     setLoading(false);
     if (error) { Alert.alert("Error", error.message); return; }
-    router.replace("/(app)/trips");
+    // Determine home screen based on role
+    const { resolveHomeRoute } = await import("../index");
+    const route = await resolveHomeRoute(data.session);
+    router.replace(route);
   }
 
   return (
@@ -46,8 +49,8 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.card}>
-        <Text style={styles.logo}>eParivahan</Text>
-        <Text style={styles.subtitle}>Driver App — Sign in</Text>
+        <Text style={styles.logo}>Tracking Management System</Text>
+        <Text style={styles.subtitle}>Sign in to your account</Text>
 
         {step === "phone" ? (
           <>
@@ -106,7 +109,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff7ed",
+    backgroundColor: "#f8fafc",
     padding: 24,
   },
   card: {
@@ -121,7 +124,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  logo: { fontSize: 26, fontWeight: "800", color: "#ea580c", textAlign: "center" },
+  logo: { fontSize: 26, fontWeight: "800", color: "#1e4dd0", textAlign: "center" },
   subtitle: { fontSize: 13, color: "#94a3b8", textAlign: "center", marginBottom: 28 },
   label: { fontSize: 13, fontWeight: "600", color: "#475569", marginBottom: 6 },
   phoneRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
@@ -146,20 +149,18 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
     paddingHorizontal: 12,
     fontSize: 15,
-    color: "#0f172a",
     backgroundColor: "#fff",
-    marginBottom: 16,
   },
   otpInput: {
     borderRadius: 8,
     textAlign: "center",
-    fontSize: 26,
-    letterSpacing: 10,
-    width: "100%",
+    fontSize: 22,
+    letterSpacing: 8,
+    marginBottom: 16,
   },
   otpHint: { fontSize: 13, color: "#64748b", marginBottom: 12, textAlign: "center" },
   btn: {
-    backgroundColor: "#f97316",
+    backgroundColor: "#1e4dd0",
     borderRadius: 10,
     paddingVertical: 13,
     alignItems: "center",
@@ -167,6 +168,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-  back: { marginTop: 14, alignItems: "center" },
-  backText: { color: "#94a3b8", fontSize: 13 },
+  back: { marginTop: 16, alignItems: "center" },
+  backText: { color: "#1e4dd0", fontSize: 13, fontWeight: "600" },
 });

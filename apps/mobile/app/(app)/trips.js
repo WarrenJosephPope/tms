@@ -101,7 +101,7 @@ export default function TripsScreen() {
             setRefreshing(true);
             await fetchTrips();
             setRefreshing(false);
-          }} tintColor="#f97316" />
+          }} tintColor="#1e4dd0" />
         }
         ListEmptyComponent={
           !loading ? (
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   container:   { flex: 1, backgroundColor: "#f8fafc" },
   header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
   headerTitle: { fontSize: 20, fontWeight: "800", color: "#0f172a" },
-  signOut:     { fontSize: 13, color: "#f97316", fontWeight: "600" },
+  signOut:     { fontSize: 13, color: "#1e4dd0", fontWeight: "600" },
   list:        { padding: 16, gap: 12 },
   tripCard:    { backgroundColor: "#fff", borderRadius: 12, padding: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   tripHeader:  { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
