@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, Dimensions,
@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { supabase } from "../../../src/lib/supabase";
 import { startTracking, stopTracking } from "../../../src/lib/locationTracking";
+import { fetchRoutePolyline } from "../../../src/lib/directions";
 
 export default function TripDetailScreen() {
   const { id: tripId } = useLocalSearchParams();
@@ -246,26 +247,36 @@ const DELIVERY_COLOR = "#dc2626";
 const LINE_COLOR = "#f97316";
 
 function StopsMapView({ stops }) {
+  const mapRef = useRef(null);
+  const [routeCoords, setRouteCoords] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(true);
+
   const validStops = stops.filter((s) => s.lat != null && s.lng != null);
-  if (!validStops.length) return null;
-
-  const lats = validStops.map((s) => Number(s.lat));
-  const lngs = validStops.map((s) => Number(s.lng));
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const region = {
-    latitude: (minLat + maxLat) / 2,
-    longitude: (minLng + maxLng) / 2,
-    latitudeDelta: Math.max(maxLat - minLat, 0.05) * 1.4,
-    longitudeDelta: Math.max(maxLng - minLng, 0.05) * 1.4,
-  };
-
-  const polylineCoords = validStops.map((s) => ({
+  const markerCoords = validStops.map((s) => ({
     latitude: Number(s.lat),
     longitude: Number(s.lng),
   }));
+
+  function fitToPoints(coords) {
+    if (!mapRef.current || !coords?.length) return;
+    mapRef.current.fitToCoordinates(coords, {
+      edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
+      animated: false,
+    });
+  }
+
+  useEffect(() => {
+    if (validStops.length < 2) { setRouteLoading(false); return; }
+    setRouteLoading(true);
+    setRouteCoords(null);
+    fetchRoutePolyline(validStops).then((coords) => {
+      setRouteCoords(coords);
+      setRouteLoading(false);
+      fitToPoints(coords ?? markerCoords);
+    });
+  }, [stops]);
+
+  if (!validStops.length) return null;
 
   return (
     <View style={styles.mapSection}>
@@ -280,24 +291,36 @@ function StopsMapView({ stops }) {
           <Text style={styles.legendText}>Delivery</Text>
         </View>
       </View>
-      <MapView style={styles.map} initialRegion={region}>
-        {validStops.map((stop, idx) => (
-          <Marker
-            key={stop.id ?? idx}
-            coordinate={{ latitude: Number(stop.lat), longitude: Number(stop.lng) }}
-            title={`${stop.stop_type === "pickup" ? "Pickup" : "Delivery"} ${idx + 1}`}
-            description={stop.address || stop.city}
-            pinColor={stop.stop_type === "pickup" ? PICKUP_COLOR : DELIVERY_COLOR}
-          />
-        ))}
-        {polylineCoords.length > 1 && (
-          <Polyline
-            coordinates={polylineCoords}
-            strokeColor={LINE_COLOR}
-            strokeWidth={2}
-          />
+      <View>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          onMapReady={() => fitToPoints(markerCoords)}
+        >
+          {validStops.map((stop, idx) => (
+            <Marker
+              key={stop.id ?? idx}
+              coordinate={{ latitude: Number(stop.lat), longitude: Number(stop.lng) }}
+              title={`${stop.stop_type === "pickup" ? "Pickup" : "Delivery"} ${idx + 1}`}
+              description={stop.address || stop.city}
+              pinColor={stop.stop_type === "pickup" ? PICKUP_COLOR : DELIVERY_COLOR}
+            />
+          ))}
+          {routeCoords && routeCoords.length > 1 && (
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor={LINE_COLOR}
+              strokeWidth={3}
+            />
+          )}
+        </MapView>
+        {routeLoading && (
+          <View style={styles.mapLoader}>
+            <ActivityIndicator color="#1e4dd0" size="small" />
+            <Text style={styles.mapLoaderText}>Loading route…</Text>
+          </View>
         )}
-      </MapView>
+      </View>
     </View>
   );
 }
@@ -343,4 +366,6 @@ const styles = StyleSheet.create({
   legendItem:     { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot:      { width: 10, height: 10, borderRadius: 5 },
   legendText:     { fontSize: 12, color: "#64748b" },
+  mapLoader:      { position: "absolute", top: 8, left: 0, right: 0, bottom: 0, borderRadius: 10, backgroundColor: "rgba(248,250,252,0.80)", justifyContent: "center", alignItems: "center", gap: 8 },
+  mapLoaderText:  { fontSize: 12, color: "#64748b" },
 });

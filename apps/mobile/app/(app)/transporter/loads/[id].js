@@ -7,6 +7,7 @@ import MapView, { Marker, Polyline } from "react-native-maps";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../../../src/lib/supabase";
 import { formatINR, formatLoadNumber, timeUntil } from "../../../../src/lib/format";
+import { fetchRoutePolyline } from "../../../../src/lib/directions";
 
 const PICKUP_COLOR = "#16a34a";
 const DELIVERY_COLOR = "#dc2626";
@@ -341,39 +342,68 @@ export default function TransporterLoadDetail() {
 }
 
 function StopsMapView({ stops }) {
-  const valid = stops.filter((s) => s.lat != null && s.lng != null);
-  if (!valid.length) return null;
+  const mapRef = useRef(null);
+  const [routeCoords, setRouteCoords] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(true);
 
-  const lats = valid.map((s) => Number(s.lat));
-  const lngs = valid.map((s) => Number(s.lng));
-  const region = {
-    latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
-    longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-    latitudeDelta: Math.max(Math.max(...lats) - Math.min(...lats), 0.05) * 1.4,
-    longitudeDelta: Math.max(Math.max(...lngs) - Math.min(...lngs), 0.05) * 1.4,
-  };
+  const valid = stops.filter((s) => s.lat != null && s.lng != null);
+  const markerCoords = valid.map((s) => ({ latitude: Number(s.lat), longitude: Number(s.lng) }));
+
+  function fitToPoints(coords) {
+    if (!mapRef.current || !coords?.length) return;
+    mapRef.current.fitToCoordinates(coords, {
+      edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
+      animated: false,
+    });
+  }
+
+  useEffect(() => {
+    const validStops = stops.filter((s) => s.lat != null && s.lng != null);
+    if (validStops.length < 2) { setRouteLoading(false); return; }
+    setRouteLoading(true);
+    setRouteCoords(null);
+    fetchRoutePolyline(validStops).then((coords) => {
+      setRouteCoords(coords);
+      setRouteLoading(false);
+      fitToPoints(coords ?? validStops.map((s) => ({ latitude: Number(s.lat), longitude: Number(s.lng) })));
+    });
+  }, [stops]);
+
+  if (!valid.length) return null;
 
   return (
     <View style={styles.mapSection}>
       <Text style={styles.sectionLabel}>ROUTE</Text>
-      <MapView style={styles.map} initialRegion={region}>
-        {valid.map((s, i) => (
-          <Marker
-            key={s.id ?? i}
-            coordinate={{ latitude: Number(s.lat), longitude: Number(s.lng) }}
-            title={`${s.stop_type === "pickup" ? "Pickup" : "Delivery"} ${i + 1}`}
-            description={s.address || s.city}
-            pinColor={s.stop_type === "pickup" ? PICKUP_COLOR : DELIVERY_COLOR}
-          />
-        ))}
-        {valid.length > 1 && (
-          <Polyline
-            coordinates={valid.map((s) => ({ latitude: Number(s.lat), longitude: Number(s.lng) }))}
-            strokeColor="#f97316"
-            strokeWidth={2}
-          />
+      <View>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          onMapReady={() => fitToPoints(markerCoords)}
+        >
+          {valid.map((s, i) => (
+            <Marker
+              key={s.id ?? i}
+              coordinate={{ latitude: Number(s.lat), longitude: Number(s.lng) }}
+              title={`${s.stop_type === "pickup" ? "Pickup" : "Delivery"} ${i + 1}`}
+              description={s.address || s.city}
+              pinColor={s.stop_type === "pickup" ? PICKUP_COLOR : DELIVERY_COLOR}
+            />
+          ))}
+          {routeCoords && routeCoords.length > 1 && (
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor="#f97316"
+              strokeWidth={3}
+            />
+          )}
+        </MapView>
+        {routeLoading && (
+          <View style={styles.mapLoader}>
+            <ActivityIndicator color="#1e4dd0" size="small" />
+            <Text style={styles.mapLoaderText}>Loading route…</Text>
+          </View>
         )}
-      </MapView>
+      </View>
     </View>
   );
 }
@@ -405,6 +435,8 @@ const styles = StyleSheet.create({
   sectionLabel:    { fontSize: 10, fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 },
   mapSection:      { backgroundColor: "#fff", borderRadius: 12, padding: 14, marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
   map:             { width: "100%", height: 180, borderRadius: 8, overflow: "hidden", marginTop: 8 },
+  mapLoader:       { position: "absolute", top: 8, left: 0, right: 0, bottom: 0, borderRadius: 8, backgroundColor: "rgba(248,250,252,0.80)", justifyContent: "center", alignItems: "center", gap: 8 },
+  mapLoaderText:   { fontSize: 12, color: "#64748b" },
   infoRow:         { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
   infoLabel:       { fontSize: 13, color: "#64748b", flex: 1 },
   infoValue:       { fontSize: 13, color: "#0f172a", fontWeight: "500", flex: 2, textAlign: "right" },
