@@ -14,7 +14,7 @@ export default function AppLayout() {
       if (!user) return;
       const { data } = await supabase
         .from("user_profiles")
-        .select("user_type, transporter_role, full_name, company:companies(name)")
+        .select("user_type, transporter_role, shipper_role, full_name, company:companies(name, modules)")
         .eq("id", user.id)
         .single();
       setProfile(data);

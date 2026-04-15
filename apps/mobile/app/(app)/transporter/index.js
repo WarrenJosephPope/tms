@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../../src/lib/supabase";
 import { formatINR, timeUntil } from "../../../src/lib/format";
 import { useSidebar } from "../../../src/contexts/SidebarContext";
+import { hasModule, MODULES } from "../../../src/lib/modules";
 
 const STATUS_COLOR = {
   active:    { bg: "#fff7ed", text: "#ea580c" },
@@ -18,7 +19,7 @@ const STATUS_COLOR = {
 
 export default function TransporterDashboard() {
   const router = useRouter();
-  const { openSidebar } = useSidebar();
+  const { openSidebar, profile: sidebarProfile } = useSidebar();
   const [state, setState] = useState({
     companyId: null,
     openLoadsCount: 0,
@@ -31,6 +32,9 @@ export default function TransporterDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const hasBidding  = hasModule(sidebarProfile?.company?.modules, MODULES.BIDDING);
+  const hasTracking = hasModule(sidebarProfile?.company?.modules, MODULES.TRACKING);
 
   async function fetchData() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -47,24 +51,30 @@ export default function TransporterDashboard() {
     const userName = profile.full_name ?? profile.name ?? (profile.first_name ? `${profile.first_name} ${profile.last_name ?? ""}`.trim() : null) ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email;
 
     const [openLoadsRes, myBidsRes, activeTripsRes] = await Promise.all([
-      supabase
-        .from("loads")
-        .select("id, load_number, origin_city, dest_city, opening_price, auction_end_time, vehicle_type_req, commodity, weight_tonnes", { count: "exact" })
-        .eq("status", "open")
-        .gt("auction_end_time", new Date().toISOString())
-        .order("auction_end_time", { ascending: true })
-        .limit(5),
-      supabase
-        .from("bids")
-        .select("id, amount, status, load:loads(id, origin_city, dest_city, status)")
-        .eq("transporter_company_id", companyId)
-        .order("created_at", { ascending: false })
-        .limit(10),
-      supabase
-        .from("trips")
-        .select("id", { count: "exact", head: true })
-        .eq("transporter_company_id", companyId)
-        .eq("status", "in_transit"),
+      hasBidding
+        ? supabase
+            .from("loads")
+            .select("id, load_number, origin_city, dest_city, opening_price, auction_end_time, vehicle_type_req, commodity, weight_tonnes", { count: "exact" })
+            .eq("status", "open")
+            .gt("auction_end_time", new Date().toISOString())
+            .order("auction_end_time", { ascending: true })
+            .limit(5)
+        : Promise.resolve({ data: [], count: 0 }),
+      hasBidding
+        ? supabase
+            .from("bids")
+            .select("id, amount, status, load:loads(id, origin_city, dest_city, status)")
+            .eq("transporter_company_id", companyId)
+            .order("created_at", { ascending: false })
+            .limit(10)
+        : Promise.resolve({ data: [] }),
+      hasTracking
+        ? supabase
+            .from("trips")
+            .select("id", { count: "exact", head: true })
+            .eq("transporter_company_id", companyId)
+            .in("status", ["assigned", "in_transit"])
+        : Promise.resolve({ count: 0 }),
     ]);
 
     const bids = myBidsRes.data ?? [];
@@ -109,14 +119,14 @@ export default function TransporterDashboard() {
 
       {/* Stats grid */}
       <View style={styles.statsGrid}>
-        <StatCard label="Open Loads" value={state.openLoadsCount} color="#1e4dd0" />
-        <StatCard label="Active Bids" value={state.activeBidsCount} color="#8b5cf6" />
-        <StatCard label="Active Trips" value={state.activeTripsCount} color="#16a34a" />
-        <StatCard label="Loads Won" value={state.wonBidsCount} color="#0ea5e9" />
+        {hasBidding && <StatCard label="Open Loads" value={state.openLoadsCount} color="#1e4dd0" />}
+        {hasBidding && <StatCard label="Active Bids" value={state.activeBidsCount} color="#8b5cf6" />}
+        {hasTracking && <StatCard label="Active Trips" value={state.activeTripsCount} color="#16a34a" />}
+        {hasBidding && <StatCard label="Loads Won" value={state.wonBidsCount} color="#0ea5e9" />}
       </View>
 
       {/* Latest open loads */}
-      <View style={styles.section}>
+      {hasBidding && <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Latest Open Loads</Text>
           <TouchableOpacity onPress={() => router.push("/(app)/transporter/loads/")}>
@@ -154,10 +164,10 @@ export default function TransporterDashboard() {
             </TouchableOpacity>
           ))
         )}
-      </View>
+      </View>}
 
       {/* Recent bids */}
-      <View style={styles.section}>
+      {hasBidding && <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>My Recent Bids</Text>
           <TouchableOpacity onPress={() => router.push("/(app)/transporter/bids")}>
@@ -191,7 +201,27 @@ export default function TransporterDashboard() {
             );
           })
         )}
-      </View>
+      </View>}
+
+      {/* Active trips shortcut (tracking module) */}
+      {hasTracking && state.activeTripsCount > 0 && (
+        <TouchableOpacity
+          style={styles.section}
+          onPress={() => router.push("/(app)/transporter/tracking/")}
+          activeOpacity={0.7}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Active Trips</Text>
+            <Text style={styles.sectionLink}>View all →</Text>
+          </View>
+          <Text style={{ fontSize: 32, fontWeight: "800", color: "#16a34a" }}>
+            {state.activeTripsCount}
+          </Text>
+          <Text style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+            trip{state.activeTripsCount !== 1 ? "s" : ""} currently in progress
+          </Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }

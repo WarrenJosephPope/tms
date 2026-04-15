@@ -5,6 +5,7 @@ import { ArrowLeft, Building2 } from "lucide-react";
 import TypeAllotmentsPanel from "./TypeAllotmentsPanel";
 import CompanyUsersPanel from "./CompanyUsersPanel";
 import BranchesPanel from "@/components/layout/BranchesPanel";
+import CompanyModulesPanel from "@/components/admin/CompanyModulesPanel";
 
 export async function generateMetadata({ params }) {
   return { title: "Company — Admin" };
@@ -22,7 +23,7 @@ export default async function AdminCompanyDetailPage({ params }) {
 
   const { data: company } = await supabase
     .from("companies")
-    .select("id, name, user_type, kyc_status, gstin, pan, phone, email, address_line1, city, state, pincode, is_active, created_at")
+    .select("id, name, user_type, kyc_status, gstin, pan, phone, email, address_line1, city, state, pincode, is_active, created_at, modules")
     .eq("id", id)
     .single();
 
@@ -76,6 +77,11 @@ export default async function AdminCompanyDetailPage({ params }) {
             </div>
           ))}
         </dl>
+      </div>
+
+      {/* Module access */}
+      <div className="card">
+        <CompanyModulesPanel companyId={company.id} initialModules={company.modules ?? ["bidding", "tracking"]} />
       </div>
 
       {/* Users */}

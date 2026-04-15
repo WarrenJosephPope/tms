@@ -19,36 +19,38 @@ import {
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { hasModule, MODULES } from "@/lib/modules";
 
+// module: 'bidding' | 'tracking' | null  (null = always visible)
 const NAV_SHIPPER = [
-  { label: "Dashboard", href: "/dashboard/shipper", icon: LayoutDashboard },
-  { label: "My Loads", href: "/dashboard/shipper/loads", icon: Package },
-  { label: "Post a Load", href: "/dashboard/shipper/loads/new", icon: Gavel },
-  { label: "Tracking", href: "/dashboard/shipper/tracking", icon: MapPin },
-  { label: "Branches", href: "/dashboard/shipper/branches", icon: Layers, ownerOnly: true },
-  { label: "Team", href: "/dashboard/shipper/team", icon: Users, ownerOnly: true },
-  { label: "Analytics", href: "/dashboard/shipper/analytics", icon: BarChart3 },
+  { label: "Dashboard",  href: "/dashboard/shipper",            icon: LayoutDashboard, module: null },
+  { label: "My Loads",   href: "/dashboard/shipper/loads",      icon: Package,         module: MODULES.BIDDING },
+  { label: "Post a Load",href: "/dashboard/shipper/loads/new",  icon: Gavel,           module: MODULES.BIDDING },
+  { label: "Trips",      href: "/dashboard/shipper/tracking",   icon: MapPin,          module: MODULES.TRACKING },
+  { label: "Branches",   href: "/dashboard/shipper/branches",   icon: Layers,          module: null, ownerOnly: true },
+  { label: "Team",       href: "/dashboard/shipper/team",       icon: Users,           module: null, ownerOnly: true },
+  { label: "Analytics",  href: "/dashboard/shipper/analytics",  icon: BarChart3,       module: null },
 ];
 
 const NAV_TRANSPORTER = [
-  { label: "Dashboard", href: "/dashboard/transporter", icon: LayoutDashboard },
-  { label: "Load Market", href: "/dashboard/transporter/loads", icon: Package },
-  { label: "My Bids", href: "/dashboard/transporter/bids", icon: Gavel },
-  { label: "Active Trips", href: "/dashboard/transporter/trips", icon: MapPin },
-  { label: "Fleet", href: "/dashboard/transporter/fleet", icon: Truck },
-  { label: "Drivers", href: "/dashboard/transporter/drivers", icon: Users },
-  { label: "Team", href: "/dashboard/transporter/team", icon: Users, ownerOnly: true },
-  { label: "Documents", href: "/dashboard/transporter/documents", icon: FileText },
+  { label: "Dashboard",    href: "/dashboard/transporter",          icon: LayoutDashboard, module: null },
+  { label: "Load Market",  href: "/dashboard/transporter/loads",    icon: Package,         module: MODULES.BIDDING },
+  { label: "My Bids",      href: "/dashboard/transporter/bids",     icon: Gavel,           module: MODULES.BIDDING },
+  { label: "Active Trips", href: "/dashboard/transporter/tracking", icon: MapPin,          module: MODULES.TRACKING },
+  { label: "Fleet",        href: "/dashboard/transporter/fleet",    icon: Truck,           module: MODULES.TRACKING },
+  { label: "Drivers",      href: "/dashboard/transporter/drivers",  icon: Users,           module: MODULES.TRACKING },
+  { label: "Team",         href: "/dashboard/transporter/team",     icon: Users,           module: null, ownerOnly: true },
+  { label: "Documents",    href: "/dashboard/transporter/documents",icon: FileText,        module: null },
 ];
 
 const NAV_ADMIN = [
-  { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-  { label: "Companies", href: "/dashboard/admin/companies", icon: ShieldCheck },
-  { label: "Type Catalog", href: "/dashboard/admin/catalog", icon: Layers },
-  { label: "All Loads", href: "/dashboard/admin/loads", icon: Package },
-  { label: "All Trips", href: "/dashboard/admin/trips", icon: Truck },
-  { label: "Analytics", href: "/dashboard/admin/analytics", icon: BarChart3 },
-  { label: "Config", href: "/dashboard/admin/config", icon: Settings },
+  { label: "Dashboard",  href: "/dashboard/admin",            icon: LayoutDashboard, module: null },
+  { label: "Companies",  href: "/dashboard/admin/companies",  icon: ShieldCheck,     module: null },
+  { label: "Type Catalog",href: "/dashboard/admin/catalog",  icon: Layers,          module: null },
+  { label: "All Loads",  href: "/dashboard/admin/loads",      icon: Package,         module: null },
+  { label: "All Trips",  href: "/dashboard/admin/trips",      icon: Truck,           module: null },
+  { label: "Analytics",  href: "/dashboard/admin/analytics",  icon: BarChart3,       module: null },
+  { label: "Config",     href: "/dashboard/admin/config",     icon: Settings,        module: null },
 ];
 
 const NAV_BY_TYPE = {
@@ -57,8 +59,14 @@ const NAV_BY_TYPE = {
   admin: NAV_ADMIN,
 };
 
+const SECTION_LABELS = {
+  [MODULES.BIDDING]:  "Bidding",
+  [MODULES.TRACKING]: "Tracking",
+};
+
 export default function Sidebar({ profile, isOpen, onClose }) {
   const pathname = usePathname();
+  const companyModules = profile.company?.modules;
   const allNav = NAV_BY_TYPE[profile.user_type] ?? [];
 
   // Determine if the user is an account_owner
@@ -66,8 +74,12 @@ export default function Sidebar({ profile, isOpen, onClose }) {
     profile.shipper_role === "account_owner" ||
     profile.transporter_role === "account_owner";
 
-  // Filter out ownerOnly items for non-owners
-  const nav = allNav.filter((item) => !item.ownerOnly || isAccountOwner);
+  // Filter: ownership check + only show module items the company has access to
+  const nav = allNav.filter((item) => {
+    if (item.ownerOnly && !isAccountOwner) return false;
+    if (item.module && !hasModule(companyModules, item.module)) return false;
+    return true;
+  });
 
   // Find the most specific nav item that matches the current path (longest prefix wins).
   // This prevents parent routes like /dashboard/admin from staying highlighted on sub-pages.
@@ -77,6 +89,20 @@ export default function Sidebar({ profile, isOpen, onClose }) {
     }
     return best;
   }, null);
+
+  // Group items with section dividers for module sections
+  const grouped = [];
+  let lastModule = undefined; // undefined = not yet seen a module item
+  for (const item of nav) {
+    if (item.module !== null && item.module !== lastModule) {
+      grouped.push({ type: "divider", label: SECTION_LABELS[item.module] ?? item.module });
+      lastModule = item.module;
+    } else if (item.module === null && lastModule !== undefined) {
+      grouped.push({ type: "divider", label: null });
+      lastModule = undefined;
+    }
+    grouped.push({ type: "item", ...item });
+  }
 
   return (
     <aside
@@ -119,7 +145,21 @@ export default function Sidebar({ profile, isOpen, onClose }) {
 
       {/* Nav links */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {nav.map(({ label, href, icon: Icon, ownerOnly: _ }) => {
+        {grouped.map((entry, i) => {
+          if (entry.type === "divider") {
+            return (
+              <div key={`div-${i}`} className="pt-3 pb-1 px-3">
+                {entry.label ? (
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    {entry.label}
+                  </span>
+                ) : (
+                  <hr className="border-surface-border" />
+                )}
+              </div>
+            );
+          }
+          const { href, label, icon: Icon } = entry;
           const active = activeHref === href;
           return (
             <Link

@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../../src/lib/supabase";
 import { formatINR, timeUntil } from "../../../src/lib/format";
 import { useSidebar } from "../../../src/contexts/SidebarContext";
+import { hasModule, MODULES } from "../../../src/lib/modules";
 
 const LOAD_STATUS_COLOR = {
   open:         { bg: "#fff7ed", text: "#ea580c" },
@@ -22,7 +23,7 @@ const LOAD_STATUS_COLOR = {
 
 export default function ShipperDashboard() {
   const router = useRouter();
-  const { openSidebar } = useSidebar();
+  const { openSidebar, profile: sidebarProfile } = useSidebar();
   const [state, setState] = useState({
     recentLoads: [],
     openCount: 0,
@@ -33,6 +34,9 @@ export default function ShipperDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const hasBidding  = hasModule(sidebarProfile?.company?.modules, MODULES.BIDDING);
+  const hasTracking = hasModule(sidebarProfile?.company?.modules, MODULES.TRACKING);
 
   async function fetchData() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -48,34 +52,43 @@ export default function ShipperDashboard() {
     const companyId = profile.company_id;
     const userName = profile.full_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email;
 
-    // Transition any open loads whose auction has ended to the correct status
-    await supabase.rpc("transition_expired_loads", { p_company_id: companyId });
+    if (hasBidding) {
+      await supabase.rpc("transition_expired_loads", { p_company_id: companyId });
+    }
 
     const nowIso = new Date().toISOString();
 
     const [loadsRes, openCountRes, activeTripsRes, needsAwardRes] = await Promise.all([
-      supabase
-        .from("loads")
-        .select("id, load_number, origin_city, dest_city, opening_price, status, auction_end_time, pickup_date, commodity")
-        .eq("shipper_company_id", companyId)
-        .order("created_at", { ascending: false })
-        .limit(6),
-      supabase
-        .from("loads")
-        .select("id", { count: "exact", head: true })
-        .eq("shipper_company_id", companyId)
-        .eq("status", "open")
-        .gt("auction_end_time", nowIso),
-      supabase
-        .from("trips")
-        .select("id, load:loads(origin_city, dest_city)")
-        .eq("shipper_company_id", companyId)
-        .eq("status", "in_transit"),
-      supabase
-        .from("loads")
-        .select("id", { count: "exact", head: true })
-        .eq("shipper_company_id", companyId)
-        .eq("status", "under_review"),
+      hasBidding
+        ? supabase
+            .from("loads")
+            .select("id, load_number, origin_city, dest_city, opening_price, status, auction_end_time, pickup_date, commodity")
+            .eq("shipper_company_id", companyId)
+            .order("created_at", { ascending: false })
+            .limit(6)
+        : Promise.resolve({ data: [] }),
+      hasBidding
+        ? supabase
+            .from("loads")
+            .select("id", { count: "exact", head: true })
+            .eq("shipper_company_id", companyId)
+            .eq("status", "open")
+            .gt("auction_end_time", nowIso)
+        : Promise.resolve({ count: 0 }),
+      hasTracking
+        ? supabase
+            .from("trips")
+            .select("id, load:loads(origin_city, dest_city)")
+            .eq("shipper_company_id", companyId)
+            .in("status", ["assigned", "in_transit"])
+        : Promise.resolve({ data: [] }),
+      hasBidding
+        ? supabase
+            .from("loads")
+            .select("id", { count: "exact", head: true })
+            .eq("shipper_company_id", companyId)
+            .eq("status", "under_review")
+        : Promise.resolve({ count: 0 }),
     ]);
 
     setState({
@@ -112,40 +125,53 @@ export default function ShipperDashboard() {
           <Ionicons name="menu-outline" size={26} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{state.userName || "Shipper"}</Text>
-        <TouchableOpacity
-          style={styles.postBtn}
-          onPress={() => router.push("/(app)/shipper/loads/new")}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={18} color="#fff" />
-        </TouchableOpacity>
+        {hasBidding && (
+          <TouchableOpacity
+            style={styles.postBtn}
+            onPress={() => router.push("/(app)/shipper/loads/new")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={18} color="#fff" />
+          </TouchableOpacity>
+        )}
+        {!hasBidding && <View style={{ width: 34 }} />}
       </View>
 
       {/* Stats grid */}
       <View style={styles.statsGrid}>
-        <StatCard label="Total Loads" value={state.recentLoads.length} color="#1e4dd0" />
-        <StatCard label="Live Auctions" value={state.openCount} color="#8b5cf6" />
-        <StatCard label="Active Trips" value={state.activeTripsCount} color="#16a34a" />
-        <StatCard label="Needs Award" value={state.needsAwardCount} color="#f59e0b" />
+        {hasBidding && <StatCard label="Total Loads" value={state.recentLoads.length} color="#1e4dd0" />}
+        {hasBidding && <StatCard label="Live Auctions" value={state.openCount} color="#8b5cf6" />}
+        {hasTracking && <StatCard label="Active Trips" value={state.activeTripsCount} color="#16a34a" />}
+        {hasBidding && <StatCard label="Needs Award" value={state.needsAwardCount} color="#f59e0b" />}
       </View>
 
       {/* Active trips */}
-      {state.activeTrips.length > 0 && (
+      {hasTracking && state.activeTrips.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Active Trips</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Active Trips</Text>
+            <TouchableOpacity onPress={() => router.push("/(app)/shipper/tracking/")}>
+              <Text style={styles.sectionLink}>View all →</Text>
+            </TouchableOpacity>
+          </View>
           {state.activeTrips.map((trip) => (
-            <View key={trip.id} style={styles.tripItem}>
+            <TouchableOpacity
+              key={trip.id}
+              style={styles.tripItem}
+              onPress={() => router.push(`/(app)/shipper/tracking/${trip.id}`)}
+            >
               <View style={[styles.tripDot, { backgroundColor: "#1e4dd0" }]} />
               <Text style={styles.tripRoute} numberOfLines={1}>
                 {trip.load?.origin_city} → {trip.load?.dest_city}
               </Text>
-            </View>
+              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+            </TouchableOpacity>
           ))}
         </View>
       )}
 
       {/* Recent loads */}
-      <View style={styles.section}>
+      {hasBidding && <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Loads</Text>
           <TouchableOpacity onPress={() => router.push("/(app)/shipper/loads/")}>
@@ -185,7 +211,7 @@ export default function ShipperDashboard() {
             );
           })
         )}
-      </View>
+      </View>}
     </ScrollView>
   );
 }
