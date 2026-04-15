@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "in.tracking_management_system.driver",
+      "bundleIdentifier": "com.warrenpope.tms",
       "config": {
         "googleMapsApiKey": "YOUR_GOOGLE_MAPS_IOS_API_KEY"
       },
@@ -28,7 +28,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "package": "in.tracking_management_system.driver",
+      "package": "com.warrenpope.tms",
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
