@@ -28,6 +28,7 @@ export default function TransporterLoadDetail() {
   const [timeLeft, setTimeLeft] = useState("");
   const [isAuctionOpen, setIsAuctionOpen] = useState(false);
   const [isBlindPhase, setIsBlindPhase] = useState(false);
+  const [isExtended, setIsExtended] = useState(false);
 
   // Bid state
   const [myPosition, setMyPosition] = useState(null);
@@ -115,17 +116,25 @@ export default function TransporterLoadDetail() {
       setTimeLeft(left);
       const nowOpen = load?.status === "open" && auctionEndTime > new Date();
       setIsAuctionOpen(nowOpen);
+      if (load?.bid_start_time) {
+        setIsBlindPhase(new Date() < new Date(load.bid_start_time));
+      }
     };
     tick();
     const id = setInterval(tick, 1_000);
     return () => clearInterval(id);
-  }, [auctionEndTime, load?.status]);
+  }, [auctionEndTime, load?.status, load?.bid_start_time]);
 
   useEffect(() => {
     if (!isAuctionOpen) return;
     const id = setInterval(fetchPosition, 10_000);
     return () => clearInterval(id);
   }, [isAuctionOpen, fetchPosition]);
+
+  // Immediately refresh position when blind phase ends
+  useEffect(() => {
+    if (!isBlindPhase && isAuctionOpen) fetchPosition();
+  }, [isBlindPhase]);
 
   useEffect(() => {
     if (!load || load.status !== "open") return;
@@ -140,7 +149,11 @@ export default function TransporterLoadDetail() {
         { event: "UPDATE", schema: "public", table: "loads", filter: `id=eq.${loadId}` },
         (payload) => {
           if (payload.new?.auction_end_time) {
-            setAuctionEndTime(new Date(payload.new.auction_end_time));
+            const newEnd = new Date(payload.new.auction_end_time);
+            setAuctionEndTime((prev) => {
+              if (prev && newEnd > prev) setIsExtended(true);
+              return newEnd;
+            });
           }
           if (payload.new?.status) {
             setLoad((prev) => ({ ...prev, ...payload.new }));
@@ -214,22 +227,6 @@ export default function TransporterLoadDetail() {
         <Text style={styles.loadNum}>{formatLoadNumber(load.load_number)}</Text>
         <Text style={styles.routeTitle}>{load.origin_city} → {load.dest_city}</Text>
 
-        {/* Auction status banner */}
-        <View style={[styles.auctionBanner, !isAuctionOpen && styles.auctionClosed]}>
-          {isAuctionOpen ? (
-            <>
-              <Text style={styles.auctionText}>
-                {isBlindPhase ? "🔒 SEALED BID PHASE" : "⚡ LIVE AUCTION"}
-              </Text>
-              <Text style={styles.auctionTimer}>{timeLeft}</Text>
-            </>
-          ) : (
-            <Text style={styles.auctionText}>
-              {load.status === "open" ? "⏰ Auction ended" : `Status: ${load.status.replace(/_/g, " ")}`}
-            </Text>
-          )}
-        </View>
-
         {/* Map */}
         {stops.length > 0 && stops.some((s) => s.lat != null) && (
           <StopsMapView stops={stops} />
@@ -276,17 +273,57 @@ export default function TransporterLoadDetail() {
           </View>
         )}
 
-        {myPosition && isAuctionOpen && !isBlindPhase && (
-          <View style={styles.positionCard}>
-            <Text style={styles.positionTitle}>Your Position</Text>
-            <Text style={styles.positionRank}>
+        {myPosition && isAuctionOpen && (
+          <View style={[
+            styles.positionCard,
+            myPosition.bid_position === 1
+              ? styles.positionCardFirst
+              : myPosition.bid_position === 2
+              ? styles.positionCardSecond
+              : styles.positionCardOther,
+          ]}>
+            <Text style={[
+              styles.positionTitle,
+              myPosition.bid_position === 1 ? styles.positionTitleFirst
+              : myPosition.bid_position === 2 ? styles.positionTitleSecond
+              : styles.positionTitleOther,
+            ]}>Your Position</Text>
+            <Text style={[
+              styles.positionRank,
+              myPosition.bid_position === 1 ? styles.positionRankFirst
+              : myPosition.bid_position === 2 ? styles.positionRankSecond
+              : styles.positionRankOther,
+            ]}>
               #{myPosition.bid_position} of {myPosition.total_bids} bids
             </Text>
-            {myPosition.bid_position === 1 && (
-              <Text style={styles.positionLeading}>🏆 You're currently leading!</Text>
+            {myPosition.bid_position === 1 ? (
+              <Text style={[styles.positionLeading, styles.positionLeadingFirst]}>🏆 You're currently leading!</Text>
+            ) : (
+              <Text style={[styles.positionLeading, myPosition.bid_position === 2 ? styles.positionLeadingSecond : styles.positionLeadingOther]}>
+                Lower your bid to improve your position
+              </Text>
             )}
           </View>
         )}
+
+        {/* Auction timer — just above the bidding area */}
+        <View style={[styles.auctionBanner, !isAuctionOpen && styles.auctionClosed]}>
+          {isAuctionOpen ? (
+            <>
+              <View>
+                <Text style={styles.auctionText}>
+                  {isBlindPhase ? "🔒 SEALED BID PHASE" : "⚡ LIVE AUCTION"}
+                </Text>
+                {isExtended && <Text style={styles.auctionExtended}>⏱ Extended</Text>}
+              </View>
+              <Text style={styles.auctionTimer}>{timeLeft}</Text>
+            </>
+          ) : (
+            <Text style={styles.auctionText}>
+              {load.status === "open" ? "⏰ Auction ended" : `Status: ${load.status.replace(/_/g, " ")}`}
+            </Text>
+          )}
+        </View>
 
         {/* Bid form */}
         {canBid && (
@@ -463,10 +500,23 @@ const styles = StyleSheet.create({
   blindBanner:     { backgroundColor: "#f0f9ff", borderRadius: 10, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: "#bae6fd" },
   blindTitle:      { fontSize: 13, fontWeight: "700", color: "#0284c7", marginBottom: 4 },
   blindText:       { fontSize: 12, color: "#0369a1", lineHeight: 18 },
-  positionCard:    { backgroundColor: "#f0fdf4", borderRadius: 12, padding: 16, marginBottom: 12, alignItems: "center", borderWidth: 1, borderColor: "#bbf7d0" },
-  positionTitle:   { fontSize: 11, fontWeight: "700", color: "#15803d", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 },
-  positionRank:    { fontSize: 22, fontWeight: "800", color: "#16a34a" },
-  positionLeading: { fontSize: 13, color: "#15803d", marginTop: 4 },
+  positionCard:          { borderRadius: 12, padding: 16, marginBottom: 12, alignItems: "center", borderWidth: 1 },
+  positionCardFirst:     { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" },
+  positionCardSecond:    { backgroundColor: "#fffbeb", borderColor: "#fde68a" },
+  positionCardOther:     { backgroundColor: "#f8fafc", borderColor: "#e2e8f0" },
+  positionTitle:         { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 },
+  positionTitleFirst:    { color: "#15803d" },
+  positionTitleSecond:   { color: "#92400e" },
+  positionTitleOther:    { color: "#475569" },
+  positionRank:          { fontSize: 22, fontWeight: "800" },
+  positionRankFirst:     { color: "#16a34a" },
+  positionRankSecond:    { color: "#d97706" },
+  positionRankOther:     { color: "#334155" },
+  positionLeading:       { fontSize: 13, marginTop: 4 },
+  positionLeadingFirst:  { color: "#15803d" },
+  positionLeadingSecond: { color: "#b45309" },
+  positionLeadingOther:  { color: "#64748b" },
+  auctionExtended:       { fontSize: 10, fontWeight: "600", color: "#9333ea", marginTop: 2 },
   bidHint:         { fontSize: 12, color: "#64748b", marginBottom: 14, lineHeight: 18 },
   fieldLabel:      { fontSize: 12, fontWeight: "600", color: "#475569", marginBottom: 4 },
   input:           { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8, paddingHorizontal: 12, height: 44, fontSize: 15, color: "#0f172a", backgroundColor: "#fff", marginBottom: 12 },
