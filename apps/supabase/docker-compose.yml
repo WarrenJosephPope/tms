@@ -211,7 +211,7 @@ services:
       # GOTRUE_SMS_TWILIO_MESSAGE_SERVICE_SID: ${SMS_TWILIO_MESSAGE_SERVICE_SID}
 
       # Test OTP mappings for development
-      # GOTRUE_SMS_TEST_OTP: ${SMS_TEST_OTP}
+      GOTRUE_SMS_TEST_OTP: ${SMS_TEST_OTP}
 
       # Uncomment to configure multi-factor authentication (MFA).
       # GOTRUE_MFA_TOTP_ENROLL_ENABLED: ${MFA_TOTP_ENROLL_ENABLED}
