@@ -42,13 +42,13 @@ export default function TransporterDashboard() {
 
     const { data: profile } = await supabase
       .from("user_profiles")
-      .select("company_id, full_name, first_name, last_name, name")
+      .select("company_id, full_name")
       .eq("id", user.id)
       .single();
 
     if (!profile) { setLoading(false); return; }
     const companyId = profile.company_id;
-    const userName = profile.full_name ?? profile.name ?? (profile.first_name ? `${profile.first_name} ${profile.last_name ?? ""}`.trim() : null) ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email;
+    const userName = profile.full_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email;
 
     const [openLoadsRes, myBidsRes, activeTripsRes] = await Promise.all([
       hasBidding
