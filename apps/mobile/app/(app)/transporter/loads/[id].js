@@ -137,13 +137,23 @@ export default function TransporterLoadDetail() {
   }, [isBlindPhase]);
 
   useEffect(() => {
+  const lastBroadcastTimeRef = useRef(0);
+
+  useEffect(() => {
     if (!load || load.status !== "open") return;
 
-    const channel = supabase
+    const channels = [];
+
+    // Base channel: load UPDATEs (extensions) + bids fallback for non-web bids
+    const baseChannel = supabase
       .channel(`tp-load:${loadId}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "bids", filter: `load_id=eq.${loadId}` },
-        () => fetchPosition()
+        () => {
+          // Skip re-fetch if a broadcast already updated us within the last 2 s
+          if (Date.now() - lastBroadcastTimeRef.current < 2_000) return;
+          fetchPosition();
+        }
       )
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "loads", filter: `id=eq.${loadId}` },
@@ -161,10 +171,28 @@ export default function TransporterLoadDetail() {
         }
       )
       .subscribe();
+    channels.push(baseChannel);
 
-    channelRef.current = channel;
-    return () => supabase.removeChannel(channel);
-  }, [load?.status, loadId, fetchPosition]);
+    // Per-transporter broadcast channel: instant position updates from web bids
+    if (profile?.company_id) {
+      const tpChannel = supabase
+        .channel(`auction-tp:${loadId}:${profile.company_id}`)
+        .on("broadcast", { event: "bid_update" }, ({ payload }) => {
+          lastBroadcastTimeRef.current = Date.now();
+          setMyPosition({
+            bid_id:       payload.bid_id ?? null,
+            amount:       payload.amount,
+            bid_position: payload.bid_position,
+            total_bids:   payload.total_bids,
+          });
+        })
+        .subscribe();
+      channels.push(tpChannel);
+    }
+
+    channelRef.current = channels[0];
+    return () => channels.forEach((ch) => supabase.removeChannel(ch));
+  }, [load?.status, loadId, fetchPosition, profile?.company_id]);
 
   async function placeBid() {
     const amount = Number(bidAmount);
@@ -173,6 +201,13 @@ export default function TransporterLoadDetail() {
       return;
     }
     if (!profile) return;
+
+    // Update the displayed bid amount instantly — zero latency for the bidder.
+    setMyPosition((prev) =>
+      prev
+        ? { ...prev, amount }
+        : { bid_id: null, amount, bid_position: null, total_bids: null }
+    );
 
     setSubmitting(true);
     try {
@@ -187,11 +222,13 @@ export default function TransporterLoadDetail() {
 
       if (error) {
         Alert.alert("Bid failed", error.message);
+        // Revert optimistic state to confirmed position
+        fetchPosition();
         return;
       }
       setExistingBid({ amount, eta_days: etaDays ? Number(etaDays) : null, notes: bidNote || null, status: "active" });
       Alert.alert("Success", isBlindPhase ? "Sealed bid submitted!" : "Bid placed!");
-      await fetchPosition();
+      // postgres_changes will trigger fetchPosition() to confirm the real ranking
     } finally {
       setSubmitting(false);
     }

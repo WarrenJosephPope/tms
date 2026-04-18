@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatINR, timeUntil, formatLoadNumber, formatDateTime } from "@/lib/format";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
@@ -20,7 +20,7 @@ import toast from "react-hot-toast";
  *   • Transporters see only their own bid and live position — never other
  *     transporters' amounts or identities.
  */
-export default function LiveAuctionPanel({ load, stops = [], userType }) {
+export default function LiveAuctionPanel({ load, stops = [], userType, companyId }) {
   // ── Derived constants ──────────────────────────────────────────────────────
   const bidStartTime = load.bid_start_time ? new Date(load.bid_start_time) : null;
 
@@ -67,6 +67,10 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
   const [submitting, setSubmitting] = useState(false);
 
   const supabase = createClient();
+
+  // Track the last time a broadcast updated local state.
+  // Used to skip postgres_changes re-fetches that are redundant.
+  const lastBroadcastTimeRef = useRef(0);
 
   const pickups    = stops.filter((s) => s.stop_type === "pickup").sort((a, b) => a.stop_order - b.stop_order);
   const deliveries = stops.filter((s) => s.stop_type === "delivery").sort((a, b) => a.stop_order - b.stop_order);
@@ -148,17 +152,29 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
   }, []);
 
   // ── Realtime subscription (bids + loads) ──────────────────────────────────
+  // Channel strategy:
+  //  • auction-panel:{id}  — postgres_changes on `loads` for auto-extension events
+  //                          postgres_changes on `bids` as FALLBACK for mobile bids
+  //                          (skipped when a broadcast already delivered the payload)
+  //  • auction-tp:{id}:{companyId} — per-transporter broadcast: instant position
+  //  • auction-sh:{id}             — shipper broadcast: instant bid list / count
+  //
   // Gated on load.status only — NOT on auctionEndTime/isAuctionOpen, so it stays
   // alive through the final seconds and correctly receives extension events.
   useEffect(() => {
     if (load.status !== "open") return;
 
-    const channel = supabase
+    const channels = [];
+
+    // ── Base channel: load UPDATEs (extension) + bids fallback ───────────────
+    const baseChannel = supabase
       .channel(`auction-panel:${load.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "bids", filter: `load_id=eq.${load.id}` },
         () => {
+          // Skip if a broadcast already updated us within the last 2 s
+          if (Date.now() - lastBroadcastTimeRef.current < 2_000) return;
           if (userType === "transporter") fetchPosition();
           else if (auctionStarted) fetchBids();
           else fetchBlindCount();
@@ -168,6 +184,7 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "bids", filter: `load_id=eq.${load.id}` },
         () => {
+          if (Date.now() - lastBroadcastTimeRef.current < 2_000) return;
           if (userType === "transporter") fetchPosition();
           else if (auctionStarted) fetchBids();
           else fetchBlindCount();
@@ -183,10 +200,8 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
           if (newEnd) {
             const next = new Date(newEnd);
             setAuctionEndTime((prev) => {
-              // Calculate added minutes BEFORE updating state so we can show the banner
               if (next.getTime() > prev.getTime()) {
                 const addedMin = Math.round((next.getTime() - prev.getTime()) / 60_000);
-                // Schedule side effects outside the updater
                 setTimeout(() => {
                   setLastExtended(addedMin);
                   toast.success(`⏱️ Auction extended by ${addedMin} min!`);
@@ -201,10 +216,46 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
         }
       )
       .subscribe();
+    channels.push(baseChannel);
 
-    return () => supabase.removeChannel(channel);
+    // ── Per-transporter broadcast channel ─────────────────────────────────────
+    if (userType === "transporter" && companyId) {
+      const tpChannel = supabase
+        .channel(`auction-tp:${load.id}:${companyId}`)
+        .on("broadcast", { event: "bid_update" }, ({ payload }) => {
+          lastBroadcastTimeRef.current = Date.now();
+          setMyPosition({
+            bid_id:       payload.bid_id ?? null,
+            amount:       payload.amount,
+            bid_position: payload.bid_position,
+            total_bids:   payload.total_bids,
+          });
+        })
+        .subscribe();
+      channels.push(tpChannel);
+    }
+
+    // ── Shipper broadcast channel ─────────────────────────────────────────────
+    if (userType === "shipper") {
+      const shChannel = supabase
+        .channel(`auction-sh:${load.id}`)
+        .on("broadcast", { event: "bids_list_update" }, ({ payload }) => {
+          if (!auctionStarted) return;
+          lastBroadcastTimeRef.current = Date.now();
+          setBids(Array.isArray(payload.bids) ? payload.bids : []);
+        })
+        .on("broadcast", { event: "blind_count_update" }, ({ payload }) => {
+          if (auctionStarted) return;
+          lastBroadcastTimeRef.current = Date.now();
+          setBlindBidCount(payload.count);
+        })
+        .subscribe();
+      channels.push(shChannel);
+    }
+
+    return () => channels.forEach((ch) => supabase.removeChannel(ch));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load.id, load.status, auctionStarted, userType]);
+  }, [load.id, load.status, auctionStarted, userType, companyId]);
 
   // ── Immediately sync timeLeft when auctionEndTime changes (extension) ──────
   // The 1s interval would take up to 1s to reflect the new end time; this effect
@@ -243,20 +294,36 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
   const placeBid = useCallback(async (e) => {
     e.preventDefault();
     setSubmitting(true);
+
+    // Update the displayed bid amount instantly — zero latency for the bidder.
+    // Preserve the existing rank — it can only stay the same or improve,
+    // and the confirmed broadcast will correct it shortly after.
+    const numericAmount = Number(bidAmount);
+    setMyPosition((prev) =>
+      prev
+        ? { ...prev, amount: numericAmount }
+        : { bid_id: null, amount: numericAmount, bid_position: null, total_bids: null }
+    );
+
     try {
       const res = await fetch(`/api/loads/${load.id}/bids`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount:   Number(bidAmount),
+          amount:   numericAmount,
           eta_days: etaDays ? Number(etaDays) : null,
           notes:    bidNote,
         }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "Bid failed"); return; }
+      if (!res.ok) {
+        toast.error(data.error || "Bid failed");
+        // Revert optimistic state to the real confirmed position
+        fetchPosition();
+        return;
+      }
       toast.success(auctionStarted ? "Bid placed!" : "Sealed bid submitted!");
-      await fetchPosition();
+      // Confirmed broadcast from server will deliver the final ranking shortly
     } finally {
       setSubmitting(false);
     }

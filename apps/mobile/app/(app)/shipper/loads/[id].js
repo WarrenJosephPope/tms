@@ -114,14 +114,21 @@ export default function ShipperLoadDetail() {
     return () => clearInterval(id);
   }, [auctionEndTime, load?.status, load?.bid_start_time, auctionStarted]);
 
+  const lastBroadcastTimeRef = useRef(0);
+
   useEffect(() => {
     if (!load || load.status !== "open") return;
 
-    const channel = supabase
+    const channels = [];
+
+    // Base channel: load UPDATEs (extensions) + bids fallback for mobile/non-web bids
+    const baseChannel = supabase
       .channel(`sh-load:${loadId}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "bids", filter: `load_id=eq.${loadId}` },
         () => {
+          // Skip re-fetch if a broadcast already updated us within the last 2 s
+          if (Date.now() - lastBroadcastTimeRef.current < 2_000) return;
           if (auctionStarted) fetchBids();
           else fetchBlindCount();
         }
@@ -136,9 +143,26 @@ export default function ShipperLoadDetail() {
         }
       )
       .subscribe();
+    channels.push(baseChannel);
 
-    channelRef.current = channel;
-    return () => supabase.removeChannel(channel);
+    // Shipper broadcast channel: instant signal to re-fetch from web bids
+    const shChannel = supabase
+      .channel(`auction-sh:${loadId}`)
+      .on("broadcast", { event: "bids_list_update" }, () => {
+        if (!auctionStarted) return;
+        lastBroadcastTimeRef.current = Date.now();
+        fetchBids();
+      })
+      .on("broadcast", { event: "blind_count_update" }, ({ payload }) => {
+        if (auctionStarted) return;
+        lastBroadcastTimeRef.current = Date.now();
+        setBlindBidCount(payload.count);
+      })
+      .subscribe();
+    channels.push(shChannel);
+
+    channelRef.current = channels[0];
+    return () => channels.forEach((ch) => supabase.removeChannel(ch));
   }, [load?.status, loadId, auctionStarted]);
 
   async function acceptBid(bidId, amount, companyName) {

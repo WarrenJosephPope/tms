@@ -43,6 +43,7 @@ export default async function LoadDetailPage({ params }) {
       <LiveAuctionPanel
         load={load}
         userType={profile.user_type}
+        companyId={profile.company_id}
       />
     </div>
   );
