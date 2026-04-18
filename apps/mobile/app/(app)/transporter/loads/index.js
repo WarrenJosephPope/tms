@@ -8,7 +8,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSidebar } from "../../../../src/contexts/SidebarContext";
 import { supabase } from "../../../../src/lib/supabase";
-import { formatINR, timeUntil } from "../../../../src/lib/format";
+import { formatINR, timeUntil, formatDate } from "../../../../src/lib/format";
 
 const PAGE_SIZE = 15;
 
@@ -111,7 +111,7 @@ export default function TransporterLoadsScreen() {
         <View style={[styles.cardRow, { marginTop: 6 }]}>
           <Text style={styles.pickupDate}>
             Pickup: {item.pickup_date
-              ? new Date(item.pickup_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
+              ? formatDate(item.pickup_date, { day: "2-digit", month: "short" })
               : "—"}
           </Text>
           {isLive && item.auction_end_time && (

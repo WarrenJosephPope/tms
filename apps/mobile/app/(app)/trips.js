@@ -6,6 +6,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../src/lib/supabase";
+import { formatDateTime } from "../../src/lib/format";
 import { useSidebar } from "../../src/contexts/SidebarContext";
 
 const STATUS_COLOR = {
@@ -72,7 +73,7 @@ export default function TripsScreen() {
         <Text style={styles.commodity}>{item.load?.commodity}</Text>
         {item.scheduled_pickup_at && (
           <Text style={styles.meta}>
-            Pickup: {new Date(item.scheduled_pickup_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+            Pickup: {formatDateTime(item.scheduled_pickup_at, { dateStyle: "medium", timeStyle: "short" })}
           </Text>
         )}
       </TouchableOpacity>

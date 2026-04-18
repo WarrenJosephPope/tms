@@ -3,7 +3,7 @@ import Link from "next/link";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
 import TableSearch from "@/components/ui/TableSearch";
 import Pagination from "@/components/ui/Pagination";
-import { formatLoadNumber } from "@/lib/format";
+import { formatLoadNumber, formatDate } from "@/lib/format";
 
 export const metadata = { title: "My Loads" };
 
@@ -126,7 +126,7 @@ export default async function ShipperLoadsPage({ searchParams }) {
                   <td className="px-4 py-3 text-slate-600 hidden sm:table-cell">{load.commodity}</td>
                   <td className="px-4 py-3 text-slate-500 hidden md:table-cell">
                     {load.pickup_date
-                      ? new Date(load.pickup_date).toLocaleDateString("en-IN", { dateStyle: "medium" })
+                      ? formatDate(load.pickup_date, { dateStyle: "medium" })
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-slate-700">

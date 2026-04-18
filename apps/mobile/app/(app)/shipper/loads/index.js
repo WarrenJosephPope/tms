@@ -6,7 +6,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../../../src/lib/supabase";
-import { formatINR, formatLoadNumber } from "../../../../src/lib/format";
+import { formatINR, formatLoadNumber, formatDate } from "../../../../src/lib/format";
 import { useSidebar } from "../../../../src/contexts/SidebarContext";
 
 const STATUSES = ["open", "under_review", "awarded", "assigned", "in_transit", "delivered", "cancelled", "expired"];
@@ -121,7 +121,7 @@ export default function ShipperLoadsScreen() {
         </View>
         {item.pickup_date && (
           <Text style={styles.pickupDate}>
-            Pickup: {new Date(item.pickup_date).toLocaleDateString("en-IN", { dateStyle: "medium" })}
+            Pickup: {formatDate(item.pickup_date, { dateStyle: "medium" })}
           </Text>
         )}
       </TouchableOpacity>

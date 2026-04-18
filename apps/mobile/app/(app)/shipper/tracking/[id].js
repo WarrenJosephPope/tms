@@ -6,6 +6,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../../../src/lib/supabase";
+import { formatDateTime } from "../../../../src/lib/format";
 
 const STATUS_COLOR = {
   assigned:   { bg: "#eff6ff", text: "#2563eb" },
@@ -158,7 +159,7 @@ export default function ShipperTripDetailScreen() {
           )}
           <DetailRow
             label="As of"
-            value={new Date(lastPing.created_at).toLocaleString()}
+            value={formatDateTime(lastPing.created_at)}
           />
         </View>
       ) : (

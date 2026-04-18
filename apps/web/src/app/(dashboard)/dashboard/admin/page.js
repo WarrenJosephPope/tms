@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Building2, Package, Truck, ShieldCheck, ClipboardList } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
+import { formatDate } from "@/lib/format";
 
 export const metadata = { title: "Admin Dashboard" };
 
@@ -59,7 +60,7 @@ export default async function AdminDashboardPage() {
                     <td className="py-3 pr-4 font-medium text-slate-900">{co.name}</td>
                     <td className="py-3 pr-4 capitalize text-slate-600">{co.user_type}</td>
                     <td className="py-3 pr-4 text-slate-500 text-xs">
-                      {new Date(co.created_at).toLocaleDateString("en-IN")}
+                      {formatDate(co.created_at, { dateStyle: "short" })}
                     </td>
                     <td className="py-3">
                       <Link

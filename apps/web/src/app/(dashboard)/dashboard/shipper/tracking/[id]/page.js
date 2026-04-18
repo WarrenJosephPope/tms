@@ -148,7 +148,7 @@ export default async function ShipperTripDetailPage({ params }) {
                 <div className="flex justify-between">
                   <dt className="text-slate-500">As of</dt>
                   <dd className="text-slate-400 text-xs">
-                    {new Date(lastPing.created_at).toLocaleString()}
+                    {new Date(lastPing.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })}
                   </dd>
                 </div>
               </dl>
@@ -163,7 +163,7 @@ export default async function ShipperTripDetailPage({ params }) {
             {lastPing ? (
               <p className="text-sm text-slate-400">
                 Live map — last ping{" "}
-                {new Date(lastPing.created_at).toLocaleTimeString()}
+                {new Date(lastPing.created_at).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", timeStyle: "short" })}
               </p>
             ) : (
               <p className="text-sm text-slate-400">No location data yet.</p>

@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSidebar } from "../../../src/contexts/SidebarContext";
 import { supabase } from "../../../src/lib/supabase";
-import { formatINR } from "../../../src/lib/format";
+import { formatINR, formatDateTime } from "../../../src/lib/format";
 
 const STATUS_FILTERS = [
   { label: "All", value: "" },
@@ -97,7 +97,7 @@ export default function TransporterBidsScreen() {
           {item.eta_days && <Text style={styles.meta}>ETA: {item.eta_days} days</Text>}
         </View>
         <Text style={styles.date}>
-          {new Date(item.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+          {formatDateTime(item.created_at, { dateStyle: "medium", timeStyle: "short" })}
         </Text>
         {item.notes && <Text style={styles.note} numberOfLines={2}>{item.notes}</Text>}
       </TouchableOpacity>

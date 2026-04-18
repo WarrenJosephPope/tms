@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { ClockIcon, CheckCircleIcon, XCircleIcon, UserIcon, BuildingIcon, Search } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
+import { formatDate } from "@/lib/format";
 
 const STATUS_BADGE = {
   pending:  { label: "Pending",  className: "bg-yellow-100 text-yellow-800" },
@@ -172,7 +173,7 @@ export default function RegistrationRequestsPage() {
                         {[req.city, req.state].filter(Boolean).join(", ") || "—"}
                       </td>
                       <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap hidden md:table-cell">
-                        {new Date(req.created_at).toLocaleDateString("en-IN")}
+                        {formatDate(req.created_at, { dateStyle: "short" })}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>

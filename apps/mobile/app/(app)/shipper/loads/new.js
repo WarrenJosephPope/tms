@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { supabase } from "../../../../src/lib/supabase";
 import { fetchRoutePolyline } from "../../../../src/lib/directions";
+import { istDateString, fromISTInputToUTC } from "../../../../src/lib/format";
 
 const HARDCODED_DEFAULTS = {
   auction_duration_minutes:  15,
@@ -40,9 +41,7 @@ const DURATION_PRESETS = [
 ];
 
 function isoDate(days = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return istDateString(days);
 }
 
 const emptyStop = () => ({ address: "", city: "", state: "", pincode: "", lat: null, lng: null });
@@ -273,12 +272,12 @@ export default function PostLoadScreen() {
     if (blindPhaseEnabled) {
       if (!bidStartDate || !bidStartTime)
         return Alert.alert("Missing field", "Set a blind phase start date and time.");
-      const parsed = new Date(`${bidStartDate}T${bidStartTime}:00`);
-      if (isNaN(parsed.getTime()))
+      const parsed = fromISTInputToUTC(`${bidStartDate}T${bidStartTime}`);
+      if (!parsed)
         return Alert.alert("Invalid", "Blind phase datetime is invalid.");
-      if (parsed <= new Date())
+      if (new Date(parsed) <= new Date())
         return Alert.alert("Invalid", "Blind phase start must be in the future.");
-      bidStartTimeISO = parsed.toISOString();
+      bidStartTimeISO = parsed;
     }
 
     if (!profile?.company_id) {

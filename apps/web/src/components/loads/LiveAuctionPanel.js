@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatINR, timeUntil, formatLoadNumber } from "@/lib/format";
+import { formatINR, timeUntil, formatLoadNumber, formatDateTime } from "@/lib/format";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
 import { Gavel, Clock, TrendingDown, MapPin, EyeOff, Trophy } from "lucide-react";
 import toast from "react-hot-toast";
@@ -758,7 +758,7 @@ export default function LiveAuctionPanel({ load, stops = [], userType }) {
                     {bid.notes && <p className="text-xs text-slate-500 mt-0.5 pl-7">{bid.notes}</p>}
                   </div>
                   <span className="text-xs text-slate-400 shrink-0 ml-4">
-                    {new Date(bid.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                    {formatDateTime(bid.created_at, { dateStyle: "short", timeStyle: "short" })}
                   </span>
                 </div>
               ))}

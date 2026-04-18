@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSidebar } from "../../../../src/contexts/SidebarContext";
 import { supabase } from "../../../../src/lib/supabase";
-import { formatINR, formatLoadNumber, timeUntil } from "../../../../src/lib/format";
+import { formatINR, formatLoadNumber, timeUntil, formatDate, formatDateTime } from "../../../../src/lib/format";
 import { fetchRoutePolyline } from "../../../../src/lib/directions";
 
 const PICKUP_COLOR = "#16a34a";
@@ -240,7 +240,7 @@ export default function TransporterLoadDetail() {
           <InfoRow label="Vehicle type" value={load.vehicle_type_req?.replace(/_/g, " ")} />
           <InfoRow label="Opening price" value={formatINR(load.opening_price)} />
           {load.pickup_date && (
-            <InfoRow label="Pickup date" value={new Date(load.pickup_date).toLocaleDateString("en-IN", { dateStyle: "medium" })} />
+            <InfoRow label="Pickup date" value={formatDate(load.pickup_date, { dateStyle: "medium" })} />
           )}
           {load.special_instructions && (
             <InfoRow label="Instructions" value={load.special_instructions} />
@@ -252,7 +252,7 @@ export default function TransporterLoadDetail() {
           <View style={styles.blindBanner}>
             <Text style={styles.blindTitle}>🔒 Blind Phase Active</Text>
             <Text style={styles.blindText}>
-              Bids are sealed until {bidStartTime.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}. Only your own bid is visible to you during this phase.
+              Bids are sealed until {formatDateTime(bidStartTime, { dateStyle: "medium", timeStyle: "short" })}. Only your own bid is visible to you during this phase.
             </Text>
           </View>
         )}

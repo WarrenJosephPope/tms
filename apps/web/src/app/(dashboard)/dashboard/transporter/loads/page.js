@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { formatINR, timeUntil, formatLoadNumber } from "@/lib/format";
+import { formatINR, timeUntil, formatLoadNumber, formatDate } from "@/lib/format";
 import TransporterLoadsFilters from "./TransporterLoadsFilters";
 import Pagination from "@/components/ui/Pagination";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
@@ -179,7 +179,7 @@ export default async function TransporterLoadsPage({ searchParams }) {
                   <span className="bg-slate-100 rounded-full px-2 py-0.5">{load.commodity}</span>
                 </div>
                 <div className="flex items-center justify-between mt-3 text-xs text-slate-400">
-                  <span>Pickup: {load.pickup_date ? new Date(load.pickup_date).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "—"}</span>
+                  <span>Pickup: {load.pickup_date ? formatDate(load.pickup_date, { dateStyle: "medium" }) : "—"}</span>
                   {isLiveAuction && (
                     <span className="font-medium text-brand-600">Closes in {timeUntil(load.auction_end_time)}</span>
                   )}

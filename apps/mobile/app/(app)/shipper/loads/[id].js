@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSidebar } from "../../../../src/contexts/SidebarContext";
 import { supabase } from "../../../../src/lib/supabase";
-import { formatINR, formatLoadNumber, timeUntil } from "../../../../src/lib/format";
+import { formatINR, formatLoadNumber, timeUntil, formatDate, formatDateTime } from "../../../../src/lib/format";
 import { fetchRoutePolyline } from "../../../../src/lib/directions";
 
 const LOAD_STATUS_COLOR = {
@@ -233,7 +233,7 @@ export default function ShipperLoadDetail() {
         <InfoRow label="Vehicle type" value={load.vehicle_type_req?.replace(/_/g, " ")} />
         <InfoRow label="Opening price" value={formatINR(load.opening_price)} />
         {load.pickup_date && (
-          <InfoRow label="Pickup date" value={new Date(load.pickup_date).toLocaleDateString("en-IN", { dateStyle: "medium" })} />
+          <InfoRow label="Pickup date" value={formatDate(load.pickup_date, { dateStyle: "medium" })} />
         )}
         {load.special_instructions && (
           <InfoRow label="Instructions" value={load.special_instructions} />
@@ -264,7 +264,7 @@ export default function ShipperLoadDetail() {
             <View style={styles.blindBox}>
               <Text style={styles.blindTitle}>🔒 Blind Phase Active</Text>
               <Text style={styles.blindText}>
-                Open bidding starts at {bidStartTime.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.
+                Open bidding starts at {formatDateTime(bidStartTime, { dateStyle: "medium", timeStyle: "short" })}.
               </Text>
               {blindBidCount !== null && (
                 <Text style={styles.blindCount}>{blindBidCount} sealed bid{blindBidCount !== 1 ? "s" : ""} received</Text>

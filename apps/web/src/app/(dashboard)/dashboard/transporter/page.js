@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Package, Gavel, Truck, TrendingUp } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
-import { formatINR } from "@/lib/format";
+import { formatINR, formatDateTime } from "@/lib/format";
 import { profileHasModule, MODULES } from "@/lib/modules";
 
 export const metadata = { title: "Transporter Dashboard" };
@@ -108,7 +108,7 @@ export default async function TransporterDashboardPage() {
                       <td className="py-3 pr-4 text-slate-500 capitalize">{load.vehicle_type_req?.replace(/_/g, " ")}</td>
                       <td className="py-3 text-slate-500 text-xs">
                         {load.auction_end_time
-                          ? new Date(load.auction_end_time).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })
+                          ? formatDateTime(load.auction_end_time, { dateStyle: "short", timeStyle: "short" })
                           : "—"}
                       </td>
                     </tr>

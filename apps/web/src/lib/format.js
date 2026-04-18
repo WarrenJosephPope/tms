@@ -49,3 +49,44 @@ export function formatPhone(phone) {
   }
   return phone;
 }
+
+const IST = "Asia/Kolkata";
+
+/**
+ * Format a UTC timestamp as a date+time string in IST (en-IN locale).
+ * Always explicit about timezone so SSR (GMT server) shows the correct IST time.
+ */
+export function formatDateTime(ts, options = {}) {
+  if (ts === null || ts === undefined) return "—";
+  return new Date(ts).toLocaleString("en-IN", {
+    timeZone: IST,
+    dateStyle: "medium",
+    timeStyle: "short",
+    ...options,
+  });
+}
+
+/**
+ * Format a UTC timestamp as a date-only string in IST (en-IN locale).
+ */
+export function formatDate(ts, options = {}) {
+  if (ts === null || ts === undefined) return "—";
+  return new Date(ts).toLocaleDateString("en-IN", {
+    timeZone: IST,
+    dateStyle: "medium",
+    ...options,
+  });
+}
+
+/**
+ * Convert a datetime-local input value (user-entered as IST) to a UTC ISO string.
+ * datetime-local values have no timezone, so we explicitly treat them as IST.
+ * Example: "2026-04-18T14:30" (IST) → "2026-04-18T09:00:00.000Z" (UTC)
+ */
+export function fromISTInputToUTC(localString) {
+  if (!localString) return null;
+  const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+  // Append Z to parse as UTC, then subtract IST offset to get real UTC.
+  const utcMs = new Date(localString + "Z").getTime() - IST_OFFSET_MS;
+  return new Date(utcMs).toISOString();
+}

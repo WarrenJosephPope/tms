@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import PlacesAutocomplete from "./PlacesAutocomplete";
 import StopsMap from "./StopsMap";
+import { fromISTInputToUTC } from "@/lib/format";
 
 // A blank stop template
 const emptyStop = () => ({ address: "", city: "", state: "", pincode: "", lat: null, lng: null });
@@ -267,6 +268,8 @@ export default function PostLoadForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          // Convert IST datetime-local input to UTC ISO string so the GMT server stores correctly.
+          bid_start_time: form.bid_start_time ? fromISTInputToUTC(form.bid_start_time) : "",
           branch_id: selectedBranch,
           // First pickup / last delivery used as the canonical origin/dest for legacy fields
           origin_city: validPickups[0].city,

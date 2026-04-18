@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Package, Gavel, MapPin } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import LoadStatusBadge from "@/components/ui/LoadStatusBadge";
-import { formatINR } from "@/lib/format";
+import { formatINR, formatDateTime } from "@/lib/format";
 import { profileHasModule, MODULES } from "@/lib/modules";
 
 export const metadata = { title: "Shipper Dashboard" };
@@ -128,7 +128,7 @@ export default async function ShipperDashboardPage() {
                       <td className="py-3 pr-4 text-slate-600">{formatINR(load.opening_price)}</td>
                       <td className="py-3 pr-4 text-slate-500 text-xs">
                         {load.auction_end_time
-                          ? new Date(load.auction_end_time).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+                          ? formatDateTime(load.auction_end_time, { dateStyle: "medium", timeStyle: "short" })
                           : "—"}
                       </td>
                       <td className="py-3"><LoadStatusBadge status={load.status} /></td>

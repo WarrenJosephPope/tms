@@ -8,6 +8,7 @@ import MapView, { Marker, Polyline } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { useSidebar } from "../../../src/contexts/SidebarContext";
 import { supabase } from "../../../src/lib/supabase";
+import { formatDateTime } from "../../../src/lib/format";
 import { startTracking, stopTracking } from "../../../src/lib/locationTracking";
 import { fetchRoutePolyline } from "../../../src/lib/directions";
 
@@ -163,7 +164,7 @@ export default function TripDetailScreen() {
         <Text style={styles.sectionTitle}>Pickup</Text>
         <InfoRow label="Address" value={load?.origin_address} />
         {trip.scheduled_pickup_at && (
-          <InfoRow label="Scheduled" value={new Date(trip.scheduled_pickup_at).toLocaleString("en-IN")} />
+          <InfoRow label="Scheduled" value={formatDateTime(trip.scheduled_pickup_at)} />
         )}
       </View>
 
@@ -171,7 +172,7 @@ export default function TripDetailScreen() {
         <Text style={styles.sectionTitle}>Delivery</Text>
         <InfoRow label="Address" value={load?.dest_address} />
         {trip.estimated_delivery_at && (
-          <InfoRow label="Estimated" value={new Date(trip.estimated_delivery_at).toLocaleString("en-IN")} />
+          <InfoRow label="Estimated" value={formatDateTime(trip.estimated_delivery_at)} />
         )}
       </View>
 

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClockIcon, CheckCircleIcon, XCircleIcon } from "lucide-react";
+import { formatDate } from "@/lib/format";
 
 export const metadata = { title: "Registration Pending — Tracking Management System" };
 
@@ -99,7 +100,7 @@ export default async function RegisterPendingPage() {
           <div className="flex justify-between">
             <span className="text-slate-400">Submitted</span>
             <span className="font-medium text-slate-800">
-              {new Date(regRequest.created_at).toLocaleDateString("en-IN")}
+              {formatDate(regRequest.created_at, { dateStyle: "medium" })}
             </span>
           </div>
         </div>
